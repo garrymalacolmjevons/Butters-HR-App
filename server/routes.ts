@@ -10,11 +10,9 @@ import {
   userLoginSchema, 
   insertEmployeeSchema, 
   bulkImportEmployeeSchema,
-  insertLeaveRecordSchema,
-  insertOvertimeRecordSchema,
-  insertDeductionRecordSchema,
-  insertAllowanceRecordSchema,
-  insertExportRecordSchema
+  insertPayrollRecordSchema,
+  insertExportRecordSchema,
+  insertEmailSettingsSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";

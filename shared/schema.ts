@@ -1,9 +1,22 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, date, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, date, pgEnum, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const companyEnum = pgEnum('company', ['Butters', 'Makana']);
+export const recordTypeEnum = pgEnum('record_type', [
+  'Leave', 
+  'Termination', 
+  'Advance', 
+  'Loan', 
+  'Deduction', 
+  'Overtime', 
+  'Standby Shift', 
+  'Bank Account Change', 
+  'Special Shift', 
+  'Escort Allowance', 
+  'Commission', 
+  'Cash in Transit'
+]);
 export const leaveTypeEnum = pgEnum('leave_type', ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Compassionate Leave', 'Study Leave']);
 export const leaveStatusEnum = pgEnum('leave_status', ['Pending', 'Approved', 'Rejected']);
 export const employeeStatusEnum = pgEnum('employee_status', ['Active', 'On Leave', 'Terminated']);
@@ -15,8 +28,8 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
-  company: companyEnum("company"),
   isAdmin: boolean("is_admin").default(false),
+  email: text("email"),
 });
 
 // Employees
@@ -25,59 +38,32 @@ export const employees = pgTable("employees", {
   employeeCode: text("employee_code").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  company: companyEnum("company").notNull(),
   department: departmentEnum("department").notNull(),
   position: text("position").notNull(),
+  email: text("email"),
   status: employeeStatusEnum("status").default('Active'),
   dateJoined: timestamp("date_joined").defaultNow(),
 });
 
-// Leave Records
-export const leaveRecords = pgTable("leave_records", {
+// Payroll Records
+export const payrollRecords = pgTable("payroll_records", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id").notNull(),
-  leaveType: leaveTypeEnum("leave_type").notNull(),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
-  totalDays: real("total_days").notNull(),
-  status: leaveStatusEnum("status").default('Pending'),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Overtime Records
-export const overtimeRecords = pgTable("overtime_records", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull(),
+  recordType: recordTypeEnum("record_type").notNull(),
   date: date("date").notNull(),
-  hours: real("hours").notNull(),
-  rate: real("rate").notNull(), // Multiplier for regular pay
+  amount: real("amount"), // Financial value when applicable
+  hours: real("hours"), // For overtime, standby shifts, etc.
+  rate: real("rate"), // Rate multiplier when applicable
+  startDate: date("start_date"), // For leave periods
+  endDate: date("end_date"), // For leave periods
+  totalDays: real("total_days"), // For leave records
+  status: leaveStatusEnum("status"), // For leave and termination
+  details: text("details"), // For bank account changes, special instructions, etc.
+  description: text("description"), // For categorization
+  recurring: boolean("recurring").default(false), // For recurring deductions/allowances
   approved: boolean("approved").default(false),
   notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Deduction Records
-export const deductionRecords = pgTable("deduction_records", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull(),
-  description: text("description").notNull(),
-  amount: real("amount").notNull(), // Can be negative
-  date: date("date").notNull(),
-  recurring: boolean("recurring").default(false),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Allowance Records
-export const allowanceRecords = pgTable("allowance_records", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull(),
-  description: text("description").notNull(),
-  amount: real("amount").notNull(),
-  date: date("date").notNull(),
-  recurring: boolean("recurring").default(false),
-  notes: text("notes"),
+  createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -85,15 +71,25 @@ export const allowanceRecords = pgTable("allowance_records", {
 export const exportRecords = pgTable("export_records", {
   id: serial("id").primaryKey(),
   reportName: text("report_name").notNull(),
-  company: companyEnum("company"),
   month: timestamp("month").notNull(),
-  includeLeave: boolean("include_leave").default(true),
-  includeOvertime: boolean("include_overtime").default(true),
-  includeDeductions: boolean("include_deductions").default(true),
-  includeAllowances: boolean("include_allowances").default(true),
+  includeRecordTypes: text("include_record_types").array().notNull(),
   format: text("format").default('xlsx'),
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Email Settings
+export const emailSettings = pgTable("email_settings", {
+  id: serial("id").primaryKey(),
+  smtpServer: text("smtp_server").notNull(),
+  smtpPort: integer("smtp_port").notNull(),
+  smtpUsername: text("smtp_username").notNull(),
+  smtpPassword: text("smtp_password").notNull(),
+  fromEmail: text("from_email").notNull(),
+  fromName: text("from_name").notNull(),
+  enabled: boolean("enabled").default(true),
+  updatedBy: integer("updated_by").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Activity logs
@@ -108,11 +104,9 @@ export const activityLogs = pgTable("activity_logs", {
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, dateJoined: true });
-export const insertLeaveRecordSchema = createInsertSchema(leaveRecords).omit({ id: true, createdAt: true });
-export const insertOvertimeRecordSchema = createInsertSchema(overtimeRecords).omit({ id: true, createdAt: true });
-export const insertDeductionRecordSchema = createInsertSchema(deductionRecords).omit({ id: true, createdAt: true });
-export const insertAllowanceRecordSchema = createInsertSchema(allowanceRecords).omit({ id: true, createdAt: true });
+export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({ id: true, createdAt: true });
 export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({ id: true, createdAt: true });
+export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
 
 // Extended schemas with custom validation
@@ -125,9 +119,9 @@ export const importEmployeeSchema = z.object({
   employeeCode: z.string().min(1, "Employee code is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  company: z.enum(['Butters', 'Makana']),
   department: z.enum(['Security', 'Administration', 'Operations']),
   position: z.string().min(1, "Position is required"),
+  email: z.string().email("Invalid email format").optional(),
   status: z.enum(['Active', 'On Leave', 'Terminated']).default('Active')
 });
 
@@ -153,37 +147,21 @@ export const relations = {
         },
       },
     },
+    emailSettings: {
+      one: {
+        emailSettings: {
+          references: [users.id],
+          foreignKey: emailSettings.updatedBy,
+        },
+      },
+    },
   },
   employees: {
-    leaveRecords: {
+    payrollRecords: {
       one: {
-        leaveRecords: {
+        payrollRecords: {
           references: [employees.id],
-          foreignKey: leaveRecords.employeeId,
-        },
-      },
-    },
-    overtimeRecords: {
-      one: {
-        overtimeRecords: {
-          references: [employees.id],
-          foreignKey: overtimeRecords.employeeId,
-        },
-      },
-    },
-    deductionRecords: {
-      one: {
-        deductionRecords: {
-          references: [employees.id],
-          foreignKey: deductionRecords.employeeId,
-        },
-      },
-    },
-    allowanceRecords: {
-      one: {
-        allowanceRecords: {
-          references: [employees.id],
-          foreignKey: allowanceRecords.employeeId,
+          foreignKey: payrollRecords.employeeId,
         },
       },
     },
@@ -195,16 +173,12 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
-export type LeaveRecord = typeof leaveRecords.$inferSelect;
-export type InsertLeaveRecord = z.infer<typeof insertLeaveRecordSchema>;
-export type OvertimeRecord = typeof overtimeRecords.$inferSelect;
-export type InsertOvertimeRecord = z.infer<typeof insertOvertimeRecordSchema>;
-export type DeductionRecord = typeof deductionRecords.$inferSelect;
-export type InsertDeductionRecord = z.infer<typeof insertDeductionRecordSchema>;
-export type AllowanceRecord = typeof allowanceRecords.$inferSelect;
-export type InsertAllowanceRecord = z.infer<typeof insertAllowanceRecordSchema>;
+export type PayrollRecord = typeof payrollRecords.$inferSelect;
+export type InsertPayrollRecord = z.infer<typeof insertPayrollRecordSchema>;
 export type ExportRecord = typeof exportRecords.$inferSelect;
 export type InsertExportRecord = z.infer<typeof insertExportRecordSchema>;
+export type EmailSettings = typeof emailSettings.$inferSelect;
+export type InsertEmailSettings = z.infer<typeof insertEmailSettingsSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type UserLogin = z.infer<typeof userLoginSchema>;

@@ -1,8 +1,7 @@
 import { 
-  User, InsertUser, Employee, InsertEmployee, 
-  LeaveRecord, InsertLeaveRecord, OvertimeRecord, InsertOvertimeRecord,
-  DeductionRecord, InsertDeductionRecord, AllowanceRecord, InsertAllowanceRecord,
-  ExportRecord, InsertExportRecord, ActivityLog, InsertActivityLog,
+  User, InsertUser, Employee, InsertEmployee,
+  PayrollRecord, InsertPayrollRecord, ExportRecord, InsertExportRecord,
+  EmailSettings, InsertEmailSettings, ActivityLog, InsertActivityLog,
   EmployeeWithFullName
 } from "@shared/schema";
 
@@ -14,65 +13,32 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   // Employees
-  getEmployees(filter?: { company?: string; department?: string; status?: string }): Promise<EmployeeWithFullName[]>;
+  getEmployees(filter?: { department?: string; status?: string }): Promise<EmployeeWithFullName[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
   getEmployeeByCode(code: string): Promise<Employee | undefined>;
   createEmployee(employee: InsertEmployee): Promise<Employee>;
   updateEmployee(id: number, employee: Partial<InsertEmployee>): Promise<Employee | undefined>;
   bulkCreateOrUpdateEmployees(employees: InsertEmployee[]): Promise<{ created: number; updated: number }>;
   
-  // Leave Records
-  getLeaveRecords(filter?: { 
+  // Payroll Records
+  getPayrollRecords(filter?: { 
     employeeId?: number;
-    company?: string;
-    leaveType?: string;
+    recordType?: string;
     status?: string;
     startDate?: Date;
     endDate?: Date;
-  }): Promise<(LeaveRecord & { employeeName: string; company: string })[]>;
-  getLeaveRecord(id: number): Promise<(LeaveRecord & { employeeName: string; company: string }) | undefined>;
-  createLeaveRecord(leaveRecord: InsertLeaveRecord): Promise<LeaveRecord>;
-  updateLeaveRecord(id: number, leaveRecord: Partial<InsertLeaveRecord>): Promise<LeaveRecord | undefined>;
-  deleteLeaveRecord(id: number): Promise<boolean>;
+  }): Promise<(PayrollRecord & { employeeName: string })[]>;
+  getPayrollRecord(id: number): Promise<(PayrollRecord & { employeeName: string }) | undefined>;
+  createPayrollRecord(payrollRecord: InsertPayrollRecord): Promise<PayrollRecord>;
+  updatePayrollRecord(id: number, payrollRecord: Partial<InsertPayrollRecord>): Promise<PayrollRecord | undefined>;
+  deletePayrollRecord(id: number): Promise<boolean>;
   
-  // Overtime Records
-  getOvertimeRecords(filter?: {
-    employeeId?: number;
-    company?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<(OvertimeRecord & { employeeName: string; company: string })[]>;
-  getOvertimeRecord(id: number): Promise<(OvertimeRecord & { employeeName: string; company: string }) | undefined>;
-  createOvertimeRecord(overtimeRecord: InsertOvertimeRecord): Promise<OvertimeRecord>;
-  updateOvertimeRecord(id: number, overtimeRecord: Partial<InsertOvertimeRecord>): Promise<OvertimeRecord | undefined>;
-  deleteOvertimeRecord(id: number): Promise<boolean>;
-  
-  // Deduction Records
-  getDeductionRecords(filter?: {
-    employeeId?: number;
-    company?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<(DeductionRecord & { employeeName: string; company: string })[]>;
-  getDeductionRecord(id: number): Promise<(DeductionRecord & { employeeName: string; company: string }) | undefined>;
-  createDeductionRecord(deductionRecord: InsertDeductionRecord): Promise<DeductionRecord>;
-  updateDeductionRecord(id: number, deductionRecord: Partial<InsertDeductionRecord>): Promise<DeductionRecord | undefined>;
-  deleteDeductionRecord(id: number): Promise<boolean>;
-  
-  // Allowance Records
-  getAllowanceRecords(filter?: {
-    employeeId?: number;
-    company?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<(AllowanceRecord & { employeeName: string; company: string })[]>;
-  getAllowanceRecord(id: number): Promise<(AllowanceRecord & { employeeName: string; company: string }) | undefined>;
-  createAllowanceRecord(allowanceRecord: InsertAllowanceRecord): Promise<AllowanceRecord>;
-  updateAllowanceRecord(id: number, allowanceRecord: Partial<InsertAllowanceRecord>): Promise<AllowanceRecord | undefined>;
-  deleteAllowanceRecord(id: number): Promise<boolean>;
+  // Email Settings
+  getEmailSettings(): Promise<EmailSettings | undefined>;
+  saveEmailSettings(settings: InsertEmailSettings): Promise<EmailSettings>;
   
   // Export Records
-  getExportRecords(filter?: { company?: string; userId?: number }): Promise<(ExportRecord & { userName: string })[]>;
+  getExportRecords(filter?: { userId?: number }): Promise<(ExportRecord & { userName: string })[]>;
   createExportRecord(exportRecord: InsertExportRecord): Promise<ExportRecord>;
   
   // Activity Logs
@@ -81,64 +47,50 @@ export interface IStorage {
   
   // Dashboard data
   getDashboardData(): Promise<{
-    employeeCounts: { total: number; butters: number; makana: number };
-    pendingLeave: { total: number; butters: number; makana: number };
-    overtimeHours: { total: number; butters: number; makana: number };
+    employeeCount: number;
+    pendingLeaveCount: number;
+    overtimeHours: number;
     lastUpdated: Date;
   }>;
   
   // Report data for exports
   getReportData(options: {
-    company?: string;
     month: Date;
-    includeLeave: boolean;
-    includeOvertime: boolean;
-    includeDeductions: boolean;
-    includeAllowances: boolean;
+    includeRecordTypes: string[];
   }): Promise<{
     employees: EmployeeWithFullName[];
-    leave: (LeaveRecord & { employeeName: string })[];
-    overtime: (OvertimeRecord & { employeeName: string })[];
-    deductions: (DeductionRecord & { employeeName: string })[];
-    allowances: (AllowanceRecord & { employeeName: string })[];
+    payrollRecords: (PayrollRecord & { employeeName: string })[];
   }>;
 }
 
+// Memory storage implementation for development
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private employees: Map<number, Employee>;
-  private leaveRecords: Map<number, LeaveRecord>;
-  private overtimeRecords: Map<number, OvertimeRecord>;
-  private deductionRecords: Map<number, DeductionRecord>;
-  private allowanceRecords: Map<number, AllowanceRecord>;
+  private payrollRecords: Map<number, PayrollRecord>;
+  private emailSettings: Map<number, EmailSettings>;
   private exportRecords: Map<number, ExportRecord>;
   private activityLogs: Map<number, ActivityLog>;
   
   private userId: number;
   private employeeId: number;
-  private leaveId: number;
-  private overtimeId: number;
-  private deductionId: number;
-  private allowanceId: number;
+  private payrollRecordId: number;
+  private emailSettingsId: number;
   private exportId: number;
   private activityLogId: number;
   
   constructor() {
     this.users = new Map();
     this.employees = new Map();
-    this.leaveRecords = new Map();
-    this.overtimeRecords = new Map();
-    this.deductionRecords = new Map();
-    this.allowanceRecords = new Map();
+    this.payrollRecords = new Map();
+    this.emailSettings = new Map();
     this.exportRecords = new Map();
     this.activityLogs = new Map();
     
     this.userId = 1;
     this.employeeId = 1;
-    this.leaveId = 1;
-    this.overtimeId = 1;
-    this.deductionId = 1;
-    this.allowanceId = 1;
+    this.payrollRecordId = 1;
+    this.emailSettingsId = 1;
     this.exportId = 1;
     this.activityLogId = 1;
     
@@ -147,8 +99,8 @@ export class MemStorage implements IStorage {
       username: "admin",
       password: "admin123", // in production, we would hash this
       fullName: "Admin User",
-      company: "Butters",
-      isAdmin: true
+      isAdmin: true,
+      email: "admin@hitech.com"
     });
     
     // Add sample HR user
@@ -156,8 +108,8 @@ export class MemStorage implements IStorage {
       username: "hrmanager",
       password: "hr123", // in production, we would hash this
       fullName: "HR Manager",
-      company: "Makana",
-      isAdmin: false
+      isAdmin: false,
+      email: "hr@hitech.com"
     });
     
     // Add some sample employees for testing
@@ -165,20 +117,32 @@ export class MemStorage implements IStorage {
       employeeCode: "EMP001",
       firstName: "John",
       lastName: "Smith",
-      company: "Butters",
       department: "Security",
       position: "Security Officer",
-      status: "Active"
+      status: "Active",
+      email: "john.smith@hitech.com"
     });
     
     this.createEmployee({
       employeeCode: "EMP023",
       firstName: "Sarah",
       lastName: "Johnson",
-      company: "Makana",
       department: "Administration",
       position: "HR Assistant",
-      status: "Active"
+      status: "Active",
+      email: "sarah.j@hitech.com"
+    });
+    
+    // Add sample email settings
+    this.saveEmailSettings({
+      smtpServer: "smtp.hitech.com",
+      smtpPort: 587,
+      smtpUsername: "notifications@hitech.com",
+      smtpPassword: "password123",
+      fromEmail: "notifications@hitech.com",
+      fromName: "Hi-Tec Security HR",
+      enabled: true,
+      updatedBy: 1
     });
   }
   
@@ -201,14 +165,10 @@ export class MemStorage implements IStorage {
   }
   
   // Employee methods
-  async getEmployees(filter?: { company?: string; department?: string; status?: string }): Promise<EmployeeWithFullName[]> {
+  async getEmployees(filter?: { department?: string; status?: string }): Promise<EmployeeWithFullName[]> {
     let employees = Array.from(this.employees.values());
     
     if (filter) {
-      if (filter.company && filter.company !== 'All Companies') {
-        employees = employees.filter(emp => emp.company === filter.company);
-      }
-      
       if (filter.department && filter.department !== 'All Departments') {
         employees = employees.filter(emp => emp.department === filter.department);
       }
@@ -269,105 +229,31 @@ export class MemStorage implements IStorage {
     return { created, updated };
   }
   
-  // Leave Record methods
-  async getLeaveRecords(filter?: { 
+  // Payroll Record methods
+  async getPayrollRecords(filter?: { 
     employeeId?: number;
-    company?: string;
-    leaveType?: string;
+    recordType?: string;
     status?: string;
     startDate?: Date;
     endDate?: Date;
-  }): Promise<(LeaveRecord & { employeeName: string; company: string })[]> {
-    let leaveRecords = Array.from(this.leaveRecords.values());
+  }): Promise<(PayrollRecord & { employeeName: string })[]> {
+    let records = Array.from(this.payrollRecords.values());
     
     if (filter) {
       if (filter.employeeId) {
-        leaveRecords = leaveRecords.filter(record => record.employeeId === filter.employeeId);
+        records = records.filter(record => record.employeeId === filter.employeeId);
       }
       
-      if (filter.leaveType && filter.leaveType !== 'All Leave Types') {
-        leaveRecords = leaveRecords.filter(record => record.leaveType === filter.leaveType);
+      if (filter.recordType) {
+        records = records.filter(record => record.recordType === filter.recordType);
       }
       
-      if (filter.status && filter.status !== 'All Status') {
-        leaveRecords = leaveRecords.filter(record => record.status === filter.status);
-      }
-      
-      if (filter.startDate && filter.endDate) {
-        leaveRecords = leaveRecords.filter(record => {
-          const recordStart = new Date(record.startDate);
-          const recordEnd = new Date(record.endDate);
-          const filterStart = new Date(filter.startDate!);
-          const filterEnd = new Date(filter.endDate!);
-          
-          return (
-            (recordStart >= filterStart && recordStart <= filterEnd) ||
-            (recordEnd >= filterStart && recordEnd <= filterEnd) ||
-            (recordStart <= filterStart && recordEnd >= filterEnd)
-          );
-        });
-      }
-    }
-    
-    // Enrich with employee names and company
-    return await Promise.all(leaveRecords.map(async record => {
-      const employee = await this.getEmployee(record.employeeId);
-      return {
-        ...record,
-        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-        company: employee ? employee.company : 'Unknown'
-      };
-    }));
-  }
-  
-  async getLeaveRecord(id: number): Promise<(LeaveRecord & { employeeName: string; company: string }) | undefined> {
-    const record = this.leaveRecords.get(id);
-    if (!record) return undefined;
-    
-    const employee = await this.getEmployee(record.employeeId);
-    return {
-      ...record,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-      company: employee ? employee.company : 'Unknown'
-    };
-  }
-  
-  async createLeaveRecord(leaveRecord: InsertLeaveRecord): Promise<LeaveRecord> {
-    const id = this.leaveId++;
-    const newLeaveRecord: LeaveRecord = { ...leaveRecord, id, createdAt: new Date() };
-    this.leaveRecords.set(id, newLeaveRecord);
-    return newLeaveRecord;
-  }
-  
-  async updateLeaveRecord(id: number, leaveRecord: Partial<InsertLeaveRecord>): Promise<LeaveRecord | undefined> {
-    const existingRecord = this.leaveRecords.get(id);
-    if (!existingRecord) return undefined;
-    
-    const updatedRecord = { ...existingRecord, ...leaveRecord };
-    this.leaveRecords.set(id, updatedRecord);
-    return updatedRecord;
-  }
-  
-  async deleteLeaveRecord(id: number): Promise<boolean> {
-    return this.leaveRecords.delete(id);
-  }
-  
-  // Overtime Record methods
-  async getOvertimeRecords(filter?: {
-    employeeId?: number;
-    company?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<(OvertimeRecord & { employeeName: string; company: string })[]> {
-    let overtimeRecords = Array.from(this.overtimeRecords.values());
-    
-    if (filter) {
-      if (filter.employeeId) {
-        overtimeRecords = overtimeRecords.filter(record => record.employeeId === filter.employeeId);
+      if (filter.status) {
+        records = records.filter(record => record.status === filter.status);
       }
       
       if (filter.startDate && filter.endDate) {
-        overtimeRecords = overtimeRecords.filter(record => {
+        records = records.filter(record => {
           const recordDate = new Date(record.date);
           const filterStart = new Date(filter.startDate!);
           const filterEnd = new Date(filter.endDate!);
@@ -377,222 +263,87 @@ export class MemStorage implements IStorage {
       }
     }
     
-    // Filter by company and enrich with employee names
-    const records = await Promise.all(overtimeRecords.map(async record => {
+    // Enrich with employee names
+    return await Promise.all(records.map(async record => {
       const employee = await this.getEmployee(record.employeeId);
       return {
         ...record,
-        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-        company: employee ? employee.company : 'Unknown'
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
       };
     }));
-    
-    // Further filter by company if needed
-    if (filter?.company && filter.company !== 'All Companies') {
-      return records.filter(record => record.company === filter.company);
-    }
-    
-    return records;
   }
   
-  async getOvertimeRecord(id: number): Promise<(OvertimeRecord & { employeeName: string; company: string }) | undefined> {
-    const record = this.overtimeRecords.get(id);
+  async getPayrollRecord(id: number): Promise<(PayrollRecord & { employeeName: string }) | undefined> {
+    const record = this.payrollRecords.get(id);
     if (!record) return undefined;
     
     const employee = await this.getEmployee(record.employeeId);
     return {
       ...record,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-      company: employee ? employee.company : 'Unknown'
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
     };
   }
   
-  async createOvertimeRecord(overtimeRecord: InsertOvertimeRecord): Promise<OvertimeRecord> {
-    const id = this.overtimeId++;
-    const newOvertimeRecord: OvertimeRecord = { ...overtimeRecord, id, createdAt: new Date() };
-    this.overtimeRecords.set(id, newOvertimeRecord);
-    return newOvertimeRecord;
+  async createPayrollRecord(payrollRecord: InsertPayrollRecord): Promise<PayrollRecord> {
+    const id = this.payrollRecordId++;
+    const newRecord: PayrollRecord = { ...payrollRecord, id, createdAt: new Date() };
+    this.payrollRecords.set(id, newRecord);
+    return newRecord;
   }
   
-  async updateOvertimeRecord(id: number, overtimeRecord: Partial<InsertOvertimeRecord>): Promise<OvertimeRecord | undefined> {
-    const existingRecord = this.overtimeRecords.get(id);
+  async updatePayrollRecord(id: number, payrollRecord: Partial<InsertPayrollRecord>): Promise<PayrollRecord | undefined> {
+    const existingRecord = this.payrollRecords.get(id);
     if (!existingRecord) return undefined;
     
-    const updatedRecord = { ...existingRecord, ...overtimeRecord };
-    this.overtimeRecords.set(id, updatedRecord);
+    const updatedRecord = { ...existingRecord, ...payrollRecord };
+    this.payrollRecords.set(id, updatedRecord);
     return updatedRecord;
   }
   
-  async deleteOvertimeRecord(id: number): Promise<boolean> {
-    return this.overtimeRecords.delete(id);
+  async deletePayrollRecord(id: number): Promise<boolean> {
+    return this.payrollRecords.delete(id);
   }
   
-  // Deduction Record methods
-  async getDeductionRecords(filter?: {
-    employeeId?: number;
-    company?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<(DeductionRecord & { employeeName: string; company: string })[]> {
-    let deductionRecords = Array.from(this.deductionRecords.values());
+  // Email Settings methods
+  async getEmailSettings(): Promise<EmailSettings | undefined> {
+    // Always return the first one as we only have one email setting record
+    return Array.from(this.emailSettings.values())[0];
+  }
+  
+  async saveEmailSettings(settings: InsertEmailSettings): Promise<EmailSettings> {
+    // If there's already a settings entry, update it instead of creating a new one
+    const existingSettings = await this.getEmailSettings();
     
-    if (filter) {
-      if (filter.employeeId) {
-        deductionRecords = deductionRecords.filter(record => record.employeeId === filter.employeeId);
-      }
-      
-      if (filter.startDate && filter.endDate) {
-        deductionRecords = deductionRecords.filter(record => {
-          const recordDate = new Date(record.date);
-          const filterStart = new Date(filter.startDate!);
-          const filterEnd = new Date(filter.endDate!);
-          
-          return recordDate >= filterStart && recordDate <= filterEnd;
-        });
-      }
-    }
-    
-    // Filter by company and enrich with employee names
-    const records = await Promise.all(deductionRecords.map(async record => {
-      const employee = await this.getEmployee(record.employeeId);
-      return {
-        ...record,
-        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-        company: employee ? employee.company : 'Unknown'
+    if (existingSettings) {
+      const updatedSettings: EmailSettings = { 
+        ...existingSettings, 
+        ...settings,
+        updatedAt: new Date()
       };
-    }));
-    
-    // Further filter by company if needed
-    if (filter?.company && filter.company !== 'All Companies') {
-      return records.filter(record => record.company === filter.company);
-    }
-    
-    return records;
-  }
-  
-  async getDeductionRecord(id: number): Promise<(DeductionRecord & { employeeName: string; company: string }) | undefined> {
-    const record = this.deductionRecords.get(id);
-    if (!record) return undefined;
-    
-    const employee = await this.getEmployee(record.employeeId);
-    return {
-      ...record,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-      company: employee ? employee.company : 'Unknown'
-    };
-  }
-  
-  async createDeductionRecord(deductionRecord: InsertDeductionRecord): Promise<DeductionRecord> {
-    const id = this.deductionId++;
-    const newDeductionRecord: DeductionRecord = { ...deductionRecord, id, createdAt: new Date() };
-    this.deductionRecords.set(id, newDeductionRecord);
-    return newDeductionRecord;
-  }
-  
-  async updateDeductionRecord(id: number, deductionRecord: Partial<InsertDeductionRecord>): Promise<DeductionRecord | undefined> {
-    const existingRecord = this.deductionRecords.get(id);
-    if (!existingRecord) return undefined;
-    
-    const updatedRecord = { ...existingRecord, ...deductionRecord };
-    this.deductionRecords.set(id, updatedRecord);
-    return updatedRecord;
-  }
-  
-  async deleteDeductionRecord(id: number): Promise<boolean> {
-    return this.deductionRecords.delete(id);
-  }
-  
-  // Allowance Record methods
-  async getAllowanceRecords(filter?: {
-    employeeId?: number;
-    company?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<(AllowanceRecord & { employeeName: string; company: string })[]> {
-    let allowanceRecords = Array.from(this.allowanceRecords.values());
-    
-    if (filter) {
-      if (filter.employeeId) {
-        allowanceRecords = allowanceRecords.filter(record => record.employeeId === filter.employeeId);
-      }
-      
-      if (filter.startDate && filter.endDate) {
-        allowanceRecords = allowanceRecords.filter(record => {
-          const recordDate = new Date(record.date);
-          const filterStart = new Date(filter.startDate!);
-          const filterEnd = new Date(filter.endDate!);
-          
-          return recordDate >= filterStart && recordDate <= filterEnd;
-        });
-      }
-    }
-    
-    // Filter by company and enrich with employee names
-    const records = await Promise.all(allowanceRecords.map(async record => {
-      const employee = await this.getEmployee(record.employeeId);
-      return {
-        ...record,
-        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-        company: employee ? employee.company : 'Unknown'
+      this.emailSettings.set(existingSettings.id, updatedSettings);
+      return updatedSettings;
+    } else {
+      const id = this.emailSettingsId++;
+      const newSettings: EmailSettings = { 
+        ...settings, 
+        id,
+        updatedAt: new Date()
       };
-    }));
-    
-    // Further filter by company if needed
-    if (filter?.company && filter.company !== 'All Companies') {
-      return records.filter(record => record.company === filter.company);
+      this.emailSettings.set(id, newSettings);
+      return newSettings;
     }
+  }
+  
+  // Export Records methods
+  async getExportRecords(filter?: { userId?: number }): Promise<(ExportRecord & { userName: string })[]> {
+    let records = Array.from(this.exportRecords.values());
     
-    return records;
-  }
-  
-  async getAllowanceRecord(id: number): Promise<(AllowanceRecord & { employeeName: string; company: string }) | undefined> {
-    const record = this.allowanceRecords.get(id);
-    if (!record) return undefined;
-    
-    const employee = await this.getEmployee(record.employeeId);
-    return {
-      ...record,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee',
-      company: employee ? employee.company : 'Unknown'
-    };
-  }
-  
-  async createAllowanceRecord(allowanceRecord: InsertAllowanceRecord): Promise<AllowanceRecord> {
-    const id = this.allowanceId++;
-    const newAllowanceRecord: AllowanceRecord = { ...allowanceRecord, id, createdAt: new Date() };
-    this.allowanceRecords.set(id, newAllowanceRecord);
-    return newAllowanceRecord;
-  }
-  
-  async updateAllowanceRecord(id: number, allowanceRecord: Partial<InsertAllowanceRecord>): Promise<AllowanceRecord | undefined> {
-    const existingRecord = this.allowanceRecords.get(id);
-    if (!existingRecord) return undefined;
-    
-    const updatedRecord = { ...existingRecord, ...allowanceRecord };
-    this.allowanceRecords.set(id, updatedRecord);
-    return updatedRecord;
-  }
-  
-  async deleteAllowanceRecord(id: number): Promise<boolean> {
-    return this.allowanceRecords.delete(id);
-  }
-  
-  // Export Record methods
-  async getExportRecords(filter?: { company?: string; userId?: number }): Promise<(ExportRecord & { userName: string })[]> {
-    let exportRecords = Array.from(this.exportRecords.values());
-    
-    if (filter) {
-      if (filter.company && filter.company !== 'All Companies') {
-        exportRecords = exportRecords.filter(record => record.company === filter.company);
-      }
-      
-      if (filter.userId) {
-        exportRecords = exportRecords.filter(record => record.createdBy === filter.userId);
-      }
+    if (filter?.userId) {
+      records = records.filter(record => record.createdBy === filter.userId);
     }
     
     // Enrich with user names
-    return await Promise.all(exportRecords.map(async record => {
+    return await Promise.all(records.map(async record => {
       const user = await this.getUser(record.createdBy);
       return {
         ...record,
@@ -603,9 +354,9 @@ export class MemStorage implements IStorage {
   
   async createExportRecord(exportRecord: InsertExportRecord): Promise<ExportRecord> {
     const id = this.exportId++;
-    const newExportRecord: ExportRecord = { ...exportRecord, id, createdAt: new Date() };
-    this.exportRecords.set(id, newExportRecord);
-    return newExportRecord;
+    const newRecord: ExportRecord = { ...exportRecord, id, createdAt: new Date() };
+    this.exportRecords.set(id, newRecord);
+    return newRecord;
   }
   
   // Activity Log methods
@@ -633,162 +384,71 @@ export class MemStorage implements IStorage {
   
   // Dashboard data
   async getDashboardData(): Promise<{
-    employeeCounts: { total: number; butters: number; makana: number };
-    pendingLeave: { total: number; butters: number; makana: number };
-    overtimeHours: { total: number; butters: number; makana: number };
+    employeeCount: number;
+    pendingLeaveCount: number;
+    overtimeHours: number;
     lastUpdated: Date;
   }> {
     const employees = await this.getEmployees();
-    const buttersEmployees = employees.filter(emp => emp.company === 'Butters');
-    const makanaEmployees = employees.filter(emp => emp.company === 'Makana');
     
-    // Get leave records with pending status
-    const allLeaveRecords = await this.getLeaveRecords({ status: 'Pending' });
-    const buttersLeave = allLeaveRecords.filter(leave => leave.company === 'Butters');
-    const makanaLeave = allLeaveRecords.filter(leave => leave.company === 'Makana');
-    
-    // Get overtime hours for current month
-    const currentDate = new Date();
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-    
-    const overtimeRecords = await this.getOvertimeRecords({
-      startDate: startOfMonth,
-      endDate: endOfMonth
+    // Find leave records with pending status
+    const leaveRecords = await this.getPayrollRecords({
+      recordType: 'Leave',
+      status: 'Pending'
     });
     
-    const buttersTotalHours = overtimeRecords
-      .filter(record => record.company === 'Butters')
-      .reduce((total, record) => total + record.hours, 0);
-      
-    const makanaTotalHours = overtimeRecords
-      .filter(record => record.company === 'Makana')
-      .reduce((total, record) => total + record.hours, 0);
+    // Count total overtime hours
+    const overtimeRecords = await this.getPayrollRecords({
+      recordType: 'Overtime'
+    });
+    const totalOvertimeHours = overtimeRecords.reduce((total, record) => total + (record.hours || 0), 0);
     
     return {
-      employeeCounts: {
-        total: employees.length,
-        butters: buttersEmployees.length,
-        makana: makanaEmployees.length
-      },
-      pendingLeave: {
-        total: allLeaveRecords.length,
-        butters: buttersLeave.length,
-        makana: makanaLeave.length
-      },
-      overtimeHours: {
-        total: buttersTotalHours + makanaTotalHours,
-        butters: buttersTotalHours,
-        makana: makanaTotalHours
-      },
+      employeeCount: employees.length,
+      pendingLeaveCount: leaveRecords.length,
+      overtimeHours: totalOvertimeHours,
       lastUpdated: new Date()
     };
   }
   
   // Report data for exports
   async getReportData(options: {
-    company?: string;
     month: Date;
-    includeLeave: boolean;
-    includeOvertime: boolean;
-    includeDeductions: boolean;
-    includeAllowances: boolean;
+    includeRecordTypes: string[];
   }): Promise<{
     employees: EmployeeWithFullName[];
-    leave: (LeaveRecord & { employeeName: string })[];
-    overtime: (OvertimeRecord & { employeeName: string })[];
-    deductions: (DeductionRecord & { employeeName: string })[];
-    allowances: (AllowanceRecord & { employeeName: string })[];
+    payrollRecords: (PayrollRecord & { employeeName: string })[];
   }> {
-    // Get start and end date for the specified month
-    const startOfMonth = new Date(options.month.getFullYear(), options.month.getMonth(), 1);
-    const endOfMonth = new Date(options.month.getFullYear(), options.month.getMonth() + 1, 0);
+    // Get active employees
+    const employees = await this.getEmployees({ status: 'Active' });
     
-    // Get employees
-    let employees = await this.getEmployees();
+    // Filter records by month and requested types
+    const startDate = new Date(options.month.getFullYear(), options.month.getMonth(), 1);
+    const endDate = new Date(options.month.getFullYear(), options.month.getMonth() + 1, 0);
     
-    // Filter by company if specified
-    if (options.company && options.company !== 'All Companies') {
-      employees = employees.filter(emp => emp.company === options.company);
+    let payrollRecords: (PayrollRecord & { employeeName: string })[] = [];
+    
+    // Only fetch records for the requested types
+    if (options.includeRecordTypes.length > 0) {
+      const allRecords = await this.getPayrollRecords({
+        startDate,
+        endDate
+      });
+      
+      payrollRecords = allRecords.filter(record => 
+        options.includeRecordTypes.includes(record.recordType)
+      );
     }
     
-    // Initialize result with filtered employees
-    const result = {
+    return {
       employees,
-      leave: [] as (LeaveRecord & { employeeName: string })[],
-      overtime: [] as (OvertimeRecord & { employeeName: string })[],
-      deductions: [] as (DeductionRecord & { employeeName: string })[],
-      allowances: [] as (AllowanceRecord & { employeeName: string })[]
+      payrollRecords
     };
-    
-    // Get the employee IDs we need to filter by
-    const employeeIds = employees.map(emp => emp.id);
-    
-    // Get leave records if requested
-    if (options.includeLeave) {
-      const allLeaveRecords = await this.getLeaveRecords({
-        startDate: startOfMonth,
-        endDate: endOfMonth
-      });
-      
-      result.leave = allLeaveRecords
-        .filter(record => employeeIds.includes(record.employeeId))
-        .map(record => ({
-          ...record,
-          employeeName: record.employeeName
-        }));
-    }
-    
-    // Get overtime records if requested
-    if (options.includeOvertime) {
-      const allOvertimeRecords = await this.getOvertimeRecords({
-        startDate: startOfMonth,
-        endDate: endOfMonth
-      });
-      
-      result.overtime = allOvertimeRecords
-        .filter(record => employeeIds.includes(record.employeeId))
-        .map(record => ({
-          ...record,
-          employeeName: record.employeeName
-        }));
-    }
-    
-    // Get deduction records if requested
-    if (options.includeDeductions) {
-      const allDeductionRecords = await this.getDeductionRecords({
-        startDate: startOfMonth,
-        endDate: endOfMonth
-      });
-      
-      result.deductions = allDeductionRecords
-        .filter(record => employeeIds.includes(record.employeeId))
-        .map(record => ({
-          ...record,
-          employeeName: record.employeeName
-        }));
-    }
-    
-    // Get allowance records if requested
-    if (options.includeAllowances) {
-      const allAllowanceRecords = await this.getAllowanceRecords({
-        startDate: startOfMonth,
-        endDate: endOfMonth
-      });
-      
-      result.allowances = allAllowanceRecords
-        .filter(record => employeeIds.includes(record.employeeId))
-        .map(record => ({
-          ...record,
-          employeeName: record.employeeName
-        }));
-    }
-    
-    return result;
   }
 }
 
+// Import database storage
 import { DatabaseStorage } from "./database-storage";
 
-// Create a DatabaseStorage instance
+// Use database storage by default
 export const storage = new DatabaseStorage();
