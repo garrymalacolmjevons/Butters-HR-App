@@ -134,6 +134,62 @@ export const importEmployeeSchema = z.object({
 // Create an array schema for bulk employee import
 export const bulkImportEmployeeSchema = z.array(importEmployeeSchema);
 
+// Define relations between tables
+export const relations = {
+  users: {
+    exportRecords: {
+      one: {
+        exportRecords: {
+          references: [users.id],
+          foreignKey: exportRecords.createdBy,
+        },
+      },
+    },
+    activityLogs: {
+      one: {
+        activityLogs: {
+          references: [users.id],
+          foreignKey: activityLogs.userId,
+        },
+      },
+    },
+  },
+  employees: {
+    leaveRecords: {
+      one: {
+        leaveRecords: {
+          references: [employees.id],
+          foreignKey: leaveRecords.employeeId,
+        },
+      },
+    },
+    overtimeRecords: {
+      one: {
+        overtimeRecords: {
+          references: [employees.id],
+          foreignKey: overtimeRecords.employeeId,
+        },
+      },
+    },
+    deductionRecords: {
+      one: {
+        deductionRecords: {
+          references: [employees.id],
+          foreignKey: deductionRecords.employeeId,
+        },
+      },
+    },
+    allowanceRecords: {
+      one: {
+        allowanceRecords: {
+          references: [employees.id],
+          foreignKey: allowanceRecords.employeeId,
+        },
+      },
+    },
+  },
+};
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
