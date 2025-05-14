@@ -44,12 +44,28 @@ export default function EmailSettings() {
   // Fetch current email settings
   const { data: settings, isLoading } = useQuery({
     queryKey: ['/api/email-settings'],
-    queryFn: () => apiRequest<EmailSettings>('/api/email-settings'),
-    // If API returns 404, we'll handle it gracefully
-    retry: (failureCount, error: any) => {
-      if (error?.statusCode === 404) return false;
-      return failureCount < 3;
-    }
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/email-settings', {
+          credentials: 'include'
+        });
+        
+        // If we get a 404, we return null to handle as if there are no settings yet
+        if (response.status === 404) {
+          return null;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch email settings: ${response.statusText}`);
+        }
+        
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching email settings:', error);
+        throw error;
+      }
+    },
+    retry: false
   });
 
   // Set up form with react-hook-form
@@ -84,10 +100,18 @@ export default function EmailSettings() {
   // Save settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      return apiRequest('/api/email-settings', {
+      const response = await fetch('/api/email-settings', {
         method: 'POST',
-        body: JSON.stringify(data)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save email settings: ${response.statusText}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/email-settings'] });
