@@ -22,6 +22,7 @@ export const leaveStatusEnum = pgEnum('leave_status', ['Pending', 'Approved', 'R
 export const employeeStatusEnum = pgEnum('employee_status', ['Active', 'On Leave', 'Terminated']);
 export const departmentEnum = pgEnum('department', ['Security', 'Administration', 'Operations']);
 export const overtimeTypeEnum = pgEnum('overtime_type', ['Weekday', 'Saturday', 'Sunday', 'Public Holiday']);
+export const userRoleEnum = pgEnum('user_role', ['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']);
 
 // Users (HR staff)
 export const users = pgTable("users", {
@@ -31,6 +32,8 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   isAdmin: boolean("is_admin").default(false),
   email: text("email"),
+  role: userRoleEnum("role").default('Viewer'),
+  active: boolean("active").default(true),
 });
 
 // Employees
@@ -125,6 +128,15 @@ export const insertOvertimeRateSchema = createInsertSchema(overtimeRates).omit({
 export const userLoginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters")
+});
+
+export const userSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Invalid email address").optional().nullable(),
+  role: z.enum(['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']).default('Viewer'),
+  active: z.boolean().default(true)
 });
 
 export const importEmployeeSchema = z.object({

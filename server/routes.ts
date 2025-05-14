@@ -7,7 +7,8 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
 import { 
-  userLoginSchema, 
+  userLoginSchema,
+  userSchema,
   insertEmployeeSchema, 
   bulkImportEmployeeSchema,
   insertPayrollRecordSchema,
@@ -763,6 +764,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(204).end();
       } else {
         res.status(500).json({ error: "Failed to delete overtime rate" });
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // User Management Routes
+  
+  // Get all users
+  app.get("/api/users", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as any;
+      
+      // Only admins can view all users
+      if (!currentUser.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can view user list" });
+      }
+      
+      // Get all users from storage
+      const users = await Promise.all((await storage.getAllUsers()).map(async (user) => {
+        // Don't send password in response
+        const { password, ...safeUser } = user;
+        return safeUser;
+      }));
+      
+      res.json(users);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Get specific user
+  app.get("/api/users/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as any;
+      const userId = parseInt(req.params.id);
+      
+      // Only admins or the user themselves can view their details
+      if (!currentUser.isAdmin && currentUser.id !== userId) {
+        return res.status(403).json({ error: "You don't have permission to view this user" });
+      }
+      
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Don't send password in response
+      const { password, ...safeUser } = user;
+      
+      res.json(safeUser);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Create new user
+  app.post("/api/users", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as any;
+      
+      // Only admins can create users
+      if (!currentUser.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can create new users" });
+      }
+      
+      // Validate user data
+      const userData = userSchema.parse(req.body);
+      
+      // Check if username is already taken
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+      
+      // Create the user
+      const newUser = await storage.createUser(userData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId: currentUser.id,
+        action: "CREATE_USER",
+        details: `Created user ${userData.username} with role ${userData.role}`
+      });
+      
+      // Don't send password in response
+      const { password, ...safeUser } = newUser;
+      
+      res.status(201).json(safeUser);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+  
+  // Update user
+  app.patch("/api/users/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as any;
+      const userId = parseInt(req.params.id);
+      
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Only admins can update other users
+      // Regular users can only update their own profile, and cannot change their role
+      if (!currentUser.isAdmin && currentUser.id !== userId) {
+        return res.status(403).json({ error: "You don't have permission to update this user" });
+      }
+      
+      // Non-admins cannot change their own role
+      if (!currentUser.isAdmin && currentUser.id === userId && req.body.role) {
+        return res.status(403).json({ error: "You cannot change your own role" });
+      }
+      
+      // Validate update data - partial validation as this is a PATCH
+      const updateData = userSchema.partial().parse(req.body);
+      
+      // If updating username, check it's not already taken
+      if (updateData.username && updateData.username !== user.username) {
+        const existingUser = await storage.getUserByUsername(updateData.username);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ error: "Username already exists" });
+        }
+      }
+      
+      // Update the user
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to update user" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId: currentUser.id,
+        action: "UPDATE_USER",
+        details: `Updated user ${updatedUser.username}`
+      });
+      
+      // Don't send password in response
+      const { password, ...safeUser } = updatedUser;
+      
+      res.json(safeUser);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+  
+  // Delete user
+  app.delete("/api/users/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as any;
+      const userId = parseInt(req.params.id);
+      
+      // Only admins can delete users
+      if (!currentUser.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can delete users" });
+      }
+      
+      // Users cannot delete themselves
+      if (currentUser.id === userId) {
+        return res.status(400).json({ error: "You cannot delete your own account" });
+      }
+      
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Delete the user
+      const success = await storage.deleteUser(userId);
+      
+      if (success) {
+        // Log activity
+        await storage.createActivityLog({
+          userId: currentUser.id,
+          action: "DELETE_USER",
+          details: `Deleted user ${user.username}`
+        });
+        
+        res.status(204).end();
+      } else {
+        res.status(500).json({ error: "Failed to delete user" });
       }
     } catch (error) {
       next(error);

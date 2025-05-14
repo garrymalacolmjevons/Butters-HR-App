@@ -10,7 +10,10 @@ export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
   
   // Employees
   getEmployees(filter?: { department?: string; status?: string }): Promise<EmployeeWithFullName[]>;
@@ -112,7 +115,9 @@ export class MemStorage implements IStorage {
       password: "admin123", // in production, we would hash this
       fullName: "Admin User",
       isAdmin: true,
-      email: "admin@hitech.com"
+      email: "admin@hitech.com",
+      role: "Admin",
+      active: true
     });
     
     // Add sample HR user
@@ -198,11 +203,33 @@ export class MemStorage implements IStorage {
     );
   }
   
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
   async createUser(user: InsertUser): Promise<User> {
     const id = this.userId++;
-    const newUser: User = { ...user, id };
+    const newUser: User = { 
+      ...user, 
+      id,
+      role: user.role || 'Viewer',
+      active: user.active !== undefined ? user.active : true 
+    };
     this.users.set(id, newUser);
     return newUser;
+  }
+  
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) return undefined;
+    
+    const updatedUser = { ...existingUser, ...userData };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    return this.users.delete(id);
   }
   
   // Employee methods

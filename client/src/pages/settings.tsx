@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import OvertimeRatesSettings from '@/components/settings/overtime-rates-settings';
 import EmailSettings from '@/components/settings/email-settings';
+import UserManagement from '@/components/settings/user-management';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -34,9 +35,10 @@ export default function SettingsPage() {
       </div>
       
       <Tabs defaultValue="overtime" className="space-y-6" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 md:w-1/2">
+        <TabsList className="grid w-full grid-cols-3 md:w-3/4">
           <TabsTrigger value="overtime">Overtime Rates</TabsTrigger>
           <TabsTrigger value="email">Email Settings</TabsTrigger>
+          <TabsTrigger value="users">User Management</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overtime" className="space-y-6">
@@ -63,6 +65,20 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <EmailSettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>
+                Manage system users and their permission levels.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UserManagement />
             </CardContent>
           </Card>
         </TabsContent>
