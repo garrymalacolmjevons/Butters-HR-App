@@ -1,11 +1,12 @@
 import { db } from "./db";
 import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 async function seed() {
   console.log("Seeding database with initial data...");
   
   // Check if admin user exists
-  const adminUser = await db.select().from(users).where({ username: "admin" });
+  const adminUser = await db.select().from(users).where(eq(users.username, "admin"));
   
   if (adminUser.length === 0) {
     // Create admin user

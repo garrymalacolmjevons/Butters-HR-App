@@ -106,7 +106,7 @@ export const activityLogs = pgTable("activity_logs", {
 });
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, isAdmin: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, dateJoined: true });
 export const insertLeaveRecordSchema = createInsertSchema(leaveRecords).omit({ id: true, createdAt: true });
 export const insertOvertimeRecordSchema = createInsertSchema(overtimeRecords).omit({ id: true, createdAt: true });
