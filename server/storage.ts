@@ -124,6 +124,35 @@ export class MemStorage implements IStorage {
       email: "hr@hitech.com"
     });
     
+    // Add default overtime rates
+    this.createOvertimeRate({
+      overtimeType: 'Weekday',
+      rate: 1.5,
+      description: 'Monday to Friday overtime rate',
+      updatedBy: 1
+    });
+    
+    this.createOvertimeRate({
+      overtimeType: 'Saturday',
+      rate: 1.5,
+      description: 'Saturday overtime rate',
+      updatedBy: 1
+    });
+    
+    this.createOvertimeRate({
+      overtimeType: 'Sunday',
+      rate: 2.0,
+      description: 'Sunday overtime rate',
+      updatedBy: 1
+    });
+    
+    this.createOvertimeRate({
+      overtimeType: 'Public Holiday',
+      rate: 2.5,
+      description: 'Public holiday overtime rate',
+      updatedBy: 1
+    });
+    
     // Add some sample employees for testing
     this.createEmployee({
       employeeCode: "EMP001",
@@ -344,6 +373,47 @@ export class MemStorage implements IStorage {
       this.emailSettings.set(id, newSettings);
       return newSettings;
     }
+  }
+  
+  // Overtime Rates methods
+  async getOvertimeRates(): Promise<OvertimeRate[]> {
+    return Array.from(this.overtimeRates.values());
+  }
+  
+  async getOvertimeRate(id: number): Promise<OvertimeRate | undefined> {
+    return this.overtimeRates.get(id);
+  }
+  
+  async getOvertimeRateByType(overtimeType: string): Promise<OvertimeRate | undefined> {
+    return Array.from(this.overtimeRates.values()).find(rate => rate.overtimeType === overtimeType);
+  }
+  
+  async createOvertimeRate(overtimeRate: InsertOvertimeRate): Promise<OvertimeRate> {
+    const id = this.overtimeRateId++;
+    const newRate: OvertimeRate = {
+      ...overtimeRate,
+      id,
+      updatedAt: new Date()
+    };
+    this.overtimeRates.set(id, newRate);
+    return newRate;
+  }
+  
+  async updateOvertimeRate(id: number, overtimeRate: Partial<InsertOvertimeRate>): Promise<OvertimeRate | undefined> {
+    const existingRate = await this.getOvertimeRate(id);
+    if (!existingRate) return undefined;
+    
+    const updatedRate: OvertimeRate = {
+      ...existingRate,
+      ...overtimeRate,
+      updatedAt: new Date()
+    };
+    this.overtimeRates.set(id, updatedRate);
+    return updatedRate;
+  }
+  
+  async deleteOvertimeRate(id: number): Promise<boolean> {
+    return this.overtimeRates.delete(id);
   }
   
   // Export Records methods
