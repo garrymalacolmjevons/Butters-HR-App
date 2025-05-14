@@ -84,7 +84,16 @@ export default function OvertimeRatesSettings() {
 
   // Fetch overtime rates
   const { data: rates, isLoading } = useQuery({
-    queryKey: ['/api/overtime-rates']
+    queryKey: ['/api/overtime-rates'],
+    queryFn: async () => {
+      const response = await fetch('/api/overtime-rates', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch overtime rates: ${response.statusText}`);
+      }
+      return response.json();
+    }
   });
 
   // Update rate mutation
