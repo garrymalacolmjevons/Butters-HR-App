@@ -17,12 +17,10 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
   // Start webcam when capturing begins
   const startWebcam = useCallback(async () => {
     try {
+      // First try with simpler constraints to ensure compatibility
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'environment' 
-        } 
+        video: true,
+        audio: false
       });
       
       setStream(mediaStream);
@@ -30,6 +28,14 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Ensure the video element starts playing
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            videoRef.current.play().catch(e => {
+              console.error('Error playing video:', e);
+            });
+          }
+        };
       }
     } catch (error) {
       console.error('Error accessing webcam:', error);
@@ -101,7 +107,9 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
               ref={videoRef}
               autoPlay
               playsInline
-              className="w-full h-auto max-h-[400px] object-contain"
+              muted
+              style={{ minHeight: "300px", background: "#000" }}
+              className="w-full object-cover"
             />
           </div>
           
