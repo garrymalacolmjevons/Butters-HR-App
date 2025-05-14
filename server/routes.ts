@@ -6,6 +6,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
+import path from "path";
 import { 
   userLoginSchema,
   userSchema,
@@ -20,6 +21,7 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
+import { saveBase64Image, deleteImage, ensureUploadsDir } from './uploads';
 
 // Setup auth utilities
 const MemoryStoreSession = MemoryStore(session);
@@ -30,7 +32,15 @@ declare module "express-session" {
   }
 }
 
+// Create directory to store uploads
+// Make sure uploads directory is created on startup
+ensureUploadsDir().catch(err => {
+  console.error('Failed to create uploads directory:', err);
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve the public directory for static assets
+  app.use(express.static(path.join(process.cwd(), 'public')));
   // Create HTTP server
   const server = createServer(app);
 
@@ -621,6 +631,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = await storage.getDashboardData();
       res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Document image upload endpoint
+  app.post("/api/upload-document", isAuthenticated, async (req, res, next) => {
+    try {
+      const { imageData } = req.body;
+      
+      if (!imageData) {
+        return res.status(400).json({ error: "No image data provided" });
+      }
+      
+      // Save the base64 image and get back the URL
+      const imageUrl = await saveBase64Image(imageData);
+      
+      res.status(201).json({ url: imageUrl });
+    } catch (error) {
+      console.error("Error uploading document image:", error);
+      res.status(500).json({ error: "Failed to upload document image" });
+    }
+  });
+  
+  // Leave routes
+  app.get("/api/leave", isAuthenticated, async (req, res, next) => {
+    try {
+      const filter = {
+        recordType: "Leave"
+      };
+      
+      // Add optional filters
+      if (req.query.startDate) {
+        filter["startDate"] = new Date(req.query.startDate as string);
+      }
+      if (req.query.endDate) {
+        filter["endDate"] = new Date(req.query.endDate as string);
+      }
+      if (req.query.status) {
+        filter["status"] = req.query.status as string;
+      }
+      if (req.query.employeeId) {
+        filter["employeeId"] = parseInt(req.query.employeeId as string);
+      }
+      
+      const records = await storage.getPayrollRecords(filter);
+      res.json(records);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.post("/api/leave", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Create a leave record (which is a type of payroll record)
+      const data = insertPayrollRecordSchema.parse({
+        ...req.body,
+        recordType: "Leave",
+        createdBy: userId
+      });
+      
+      const record = await storage.createPayrollRecord(data);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Create Leave Record",
+        details: `Created leave record for employee ID ${record.employeeId}`
+      });
+      
+      res.status(201).json(record);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+  
+  app.get("/api/leave/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const record = await storage.getPayrollRecord(id);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Leave record not found" });
+      }
+      
+      if (record.recordType !== "Leave") {
+        return res.status(400).json({ error: "Record is not a leave record" });
+      }
+      
+      res.json(record);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.patch("/api/leave/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const userId = (req.user as any).id;
+      
+      // Check if record exists and is a leave record
+      const existingRecord = await storage.getPayrollRecord(id);
+      if (!existingRecord) {
+        return res.status(404).json({ error: "Leave record not found" });
+      }
+      
+      if (existingRecord.recordType !== "Leave") {
+        return res.status(400).json({ error: "Record is not a leave record" });
+      }
+      
+      // Update the record
+      const data = insertPayrollRecordSchema.partial().parse(req.body);
+      
+      // Ensure recordType remains "Leave"
+      if (data.recordType && data.recordType !== "Leave") {
+        return res.status(400).json({ error: "Cannot change record type" });
+      }
+      
+      const updatedRecord = await storage.updatePayrollRecord(id, data);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Leave Record",
+        details: `Updated leave record ID ${id} for employee ID ${existingRecord.employeeId}`
+      });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+  
+  app.delete("/api/leave/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const userId = (req.user as any).id;
+      
+      // Check if record exists and is a leave record
+      const existingRecord = await storage.getPayrollRecord(id);
+      if (!existingRecord) {
+        return res.status(404).json({ error: "Leave record not found" });
+      }
+      
+      if (existingRecord.recordType !== "Leave") {
+        return res.status(400).json({ error: "Record is not a leave record" });
+      }
+      
+      // Delete the record
+      const success = await storage.deletePayrollRecord(id);
+      
+      if (success) {
+        // Log activity
+        await storage.createActivityLog({
+          userId,
+          action: "Delete Leave Record",
+          details: `Deleted leave record ID ${id} for employee ID ${existingRecord.employeeId}`
+        });
+        
+        res.status(204).end();
+      } else {
+        res.status(500).json({ error: "Failed to delete leave record" });
+      }
     } catch (error) {
       next(error);
     }
