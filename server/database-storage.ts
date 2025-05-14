@@ -1,11 +1,11 @@
 import { eq, and, gt, lt, desc, isNull, or, sql, count } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, employees, payrollRecords, exportRecords, emailSettings, activityLogs,
+  users, employees, payrollRecords, exportRecords, emailSettings, activityLogs, overtimeRates,
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, ExportRecord, InsertExportRecord, 
   EmailSettings, InsertEmailSettings, ActivityLog, InsertActivityLog,
-  EmployeeWithFullName
+  OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -19,6 +19,26 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+  
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db
+      .delete(users)
+      .where(eq(users.id, id));
+    return !!result;
   }
 
   async createUser(user: InsertUser): Promise<User> {
@@ -300,6 +320,48 @@ export class DatabaseStorage implements IStorage {
       overtimeHours: Number(overtimeResult?.total || 0),
       lastUpdated: new Date()
     };
+  }
+
+  // Overtime Rates methods
+  async getOvertimeRates(): Promise<OvertimeRate[]> {
+    return await db.select().from(overtimeRates).orderBy(overtimeRates.overtimeType);
+  }
+  
+  async getOvertimeRate(id: number): Promise<OvertimeRate | undefined> {
+    const [rate] = await db.select().from(overtimeRates).where(eq(overtimeRates.id, id));
+    return rate;
+  }
+  
+  async getOvertimeRateByType(overtimeType: string): Promise<OvertimeRate | undefined> {
+    const [rate] = await db.select().from(overtimeRates).where(eq(overtimeRates.overtimeType, overtimeType));
+    return rate;
+  }
+  
+  async createOvertimeRate(overtimeRate: InsertOvertimeRate): Promise<OvertimeRate> {
+    const [newRate] = await db.insert(overtimeRates)
+      .values({
+        ...overtimeRate,
+        updatedAt: new Date()
+      })
+      .returning();
+    return newRate;
+  }
+  
+  async updateOvertimeRate(id: number, overtimeRate: Partial<InsertOvertimeRate>): Promise<OvertimeRate | undefined> {
+    const [updatedRate] = await db.update(overtimeRates)
+      .set({
+        ...overtimeRate,
+        updatedAt: new Date()
+      })
+      .where(eq(overtimeRates.id, id))
+      .returning();
+    return updatedRate;
+  }
+  
+  async deleteOvertimeRate(id: number): Promise<boolean> {
+    const result = await db.delete(overtimeRates)
+      .where(eq(overtimeRates.id, id));
+    return result.rowCount > 0;
   }
 
   // Report data for exports
