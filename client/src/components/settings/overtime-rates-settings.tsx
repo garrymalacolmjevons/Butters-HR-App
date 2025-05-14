@@ -129,10 +129,18 @@ export default function OvertimeRatesSettings() {
   // Add rate mutation
   const addRateMutation = useMutation({
     mutationFn: async (data: typeof newRate) => {
-      return apiRequest('/api/overtime-rates', {
+      const response = await fetch('/api/overtime-rates', {
         method: 'POST',
-        body: JSON.stringify(data)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to add overtime rate: ${response.statusText}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/overtime-rates'] });
@@ -160,9 +168,15 @@ export default function OvertimeRatesSettings() {
   // Delete rate mutation
   const deleteRateMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/overtime-rates/${id}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/overtime-rates/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to delete overtime rate: ${response.statusText}`);
+      }
+      
       return id;
     },
     onSuccess: () => {
