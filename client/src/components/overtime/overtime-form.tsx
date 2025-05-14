@@ -24,13 +24,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmployeeWithFullName } from "@shared/schema";
 
 // Extend the insert schema with validation
-const overtimeFormSchema = insertOvertimeRecordSchema.extend({
-  // Add any additional validation if needed
+const overtimeFormSchema = insertPayrollRecordSchema.extend({
+  // Add any additional validation or fields if needed
 });
 
 type OvertimeFormValues = z.infer<typeof overtimeFormSchema>;
@@ -52,27 +52,37 @@ export function OvertimeForm({
   isSubmitting,
   title,
 }: OvertimeFormProps) {
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
+  const [calculatedAmount, setCalculatedAmount] = useState<number | null>(null);
 
   // Fetch employees for the dropdown
   const { data: employees = [], isLoading: isLoadingEmployees } = useQuery<EmployeeWithFullName[]>({
-    queryKey: ["/api/employees", selectedCompany],
+    queryKey: ["/api/employees"],
   });
-
-  // Filter employees by company if selected
-  const filteredEmployees = selectedCompany && selectedCompany !== "All Companies"
-    ? employees.filter(emp => emp.company === selectedCompany)
-    : employees;
 
   const form = useForm<OvertimeFormValues>({
     resolver: zodResolver(overtimeFormSchema),
-    defaultValues: defaultValues || {
-      date: new Date().toISOString().split('T')[0],
-      hours: 0,
-      rate: 1.5,
-      approved: false,
+    defaultValues: {
+      ...defaultValues,
+      recordType: "Overtime",
+      hours: defaultValues?.hours || 0,
+      rate: defaultValues?.rate || 1.5,
+      status: defaultValues?.status || "Pending",
+      date: defaultValues?.date || new Date().toISOString().split('T')[0]
     },
   });
+
+  // Calculate amount when hours or rate changes
+  useEffect(() => {
+    const hours = form.watch("hours");
+    const rate = form.watch("rate");
+    
+    if (hours && rate) {
+      const baseRate = 400; // Base hourly rate in Rands
+      const amount = hours * baseRate * rate;
+      setCalculatedAmount(amount);
+      form.setValue("amount", amount);
+    }
+  }, [form.watch("hours"), form.watch("rate"), form]);
 
   const handleSubmit = (values: OvertimeFormValues) => {
     onSubmit(values);
@@ -90,47 +100,55 @@ export function OvertimeForm({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="employeeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Employee</FormLabel>
-                  <Select
-                    disabled={isLoadingEmployees}
-                    onValueChange={(value) => {
-                      field.onChange(parseInt(value));
-                      // Find company for selected employee
-                      const employee = employees.find(emp => emp.id === parseInt(value));
-                      if (employee) {
-                        setSelectedCompany(employee.company);
-                      }
-                    }}
-                    value={field.value?.toString()}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Employee" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {isLoadingEmployees ? (
-                        <SelectItem value="loading" disabled>Loading...</SelectItem>
-                      ) : (
-                        filteredEmployees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id.toString()}>
-                            {employee.fullName} ({employee.employeeCode})
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <div className="grid grid-cols-2 gap-4">
+              {/* Hidden Record Type field - always "Overtime" */}
+              <FormField
+                control={form.control}
+                name="recordType"
+                render={({ field }) => (
+                  <FormItem className="hidden">
+                    <FormControl>
+                      <Input type="hidden" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Employee</FormLabel>
+                    <Select
+                      disabled={isLoadingEmployees}
+                      onValueChange={(value) => {
+                        field.onChange(parseInt(value));
+                      }}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Employee" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {isLoadingEmployees ? (
+                          <SelectItem value="loading" disabled>Loading...</SelectItem>
+                        ) : (
+                          employees.map((employee) => (
+                            <SelectItem key={employee.id} value={employee.id.toString()}>
+                              {employee.fullName || `${employee.firstName} ${employee.lastName}`} ({employee.employeeCode})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="date"
@@ -138,8 +156,36 @@ export function OvertimeForm({
                   <FormItem>
                     <FormLabel>Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        {...field} 
+                        defaultValue={new Date().toISOString().split('T')[0]}
+                      />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="details"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Overtime Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Weekday">Weekday</SelectItem>
+                        <SelectItem value="Weekend">Weekend</SelectItem>
+                        <SelectItem value="Public Holiday">Public Holiday</SelectItem>
+                        <SelectItem value="Night Shift">Night Shift</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -152,11 +198,11 @@ export function OvertimeForm({
                   <FormItem>
                     <FormLabel>Hours</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        min="0.5" 
-                        step="0.5" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        {...field}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
                       />
                     </FormControl>
@@ -164,72 +210,118 @@ export function OvertimeForm({
                   </FormItem>
                 )}
               />
-            </div>
 
-            <FormField
-              control={form.control}
-              name="rate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Rate Multiplier</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(parseFloat(value))}
-                    value={field.value?.toString()}
-                  >
+              <FormField
+                control={form.control}
+                name="rate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rate Multiplier</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Rate" />
-                      </SelectTrigger>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="1">1.0x (Regular)</SelectItem>
-                      <SelectItem value="1.5">1.5x (Time and a half)</SelectItem>
-                      <SelectItem value="2">2.0x (Double time)</SelectItem>
-                      <SelectItem value="2.5">2.5x (Double time and a half)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    The multiplier for regular pay rate
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Enter any additional information" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="approved"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Approved</FormLabel>
                     <FormDescription>
-                      Check this box if the overtime is approved for payment
+                      Base x 1.5 for standard overtime, x2 for holidays
                     </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Calculated Amount (R)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        readOnly
+                        {...field}
+                        value={calculatedAmount !== null ? calculatedAmount : field.value || ''}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Base hourly rate (R400) x Hours x Rate multiplier
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Enter a description of this overtime work" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Enter any additional notes" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Status</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex space-x-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Pending" id="status-pending" />
+                          <FormLabel htmlFor="status-pending" className="font-normal">
+                            Pending
+                          </FormLabel>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Approved" id="status-approved" />
+                          <FormLabel htmlFor="status-approved" className="font-normal">
+                            Approved
+                          </FormLabel>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Rejected" id="status-rejected" />
+                          <FormLabel htmlFor="status-rejected" className="font-normal">
+                            Rejected
+                          </FormLabel>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>

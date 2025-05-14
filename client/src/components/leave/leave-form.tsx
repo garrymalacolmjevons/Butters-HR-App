@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertPayrollRecordSchema, PayrollRecord, Employee } from "@shared/schema";
+import { insertPayrollRecordSchema, PayrollRecord } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { calculateDaysBetween } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -55,24 +55,19 @@ export function LeaveForm({
 }: LeaveFormProps) {
   const [selectedStartDate, setSelectedStartDate] = useState<string>("");
   const [selectedEndDate, setSelectedEndDate] = useState<string>("");
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
 
   // Fetch employees for the dropdown
   const { data: employees = [], isLoading: isLoadingEmployees } = useQuery<EmployeeWithFullName[]>({
-    queryKey: ["/api/employees", selectedCompany],
+    queryKey: ["/api/employees"],
   });
-
-  // Filter employees by company if selected
-  const filteredEmployees = selectedCompany && selectedCompany !== "All Companies"
-    ? employees.filter(emp => emp.company === selectedCompany)
-    : employees;
 
   const form = useForm<LeaveFormValues>({
     resolver: zodResolver(leaveFormSchema),
-    defaultValues: defaultValues || {
-      leaveType: "Annual Leave",
-      status: "Pending",
-      totalDays: 1,
+    defaultValues: {
+      ...defaultValues,
+      recordType: "Leave",
+      status: defaultValues?.status || "Pending",
+      totalDays: defaultValues?.totalDays || 1,
     },
   });
 
@@ -92,11 +87,11 @@ export function LeaveForm({
   // Update state when dates change in form
   useEffect(() => {
     if (defaultValues?.startDate) {
-      const formattedStartDate = new Date(defaultValues.startDate).toISOString().split('T')[0];
+      const formattedStartDate = defaultValues.startDate.toString().split('T')[0];
       setSelectedStartDate(formattedStartDate);
     }
     if (defaultValues?.endDate) {
-      const formattedEndDate = new Date(defaultValues.endDate).toISOString().split('T')[0];
+      const formattedEndDate = defaultValues.endDate.toString().split('T')[0];
       setSelectedEndDate(formattedEndDate);
     }
   }, [defaultValues]);
@@ -118,6 +113,19 @@ export function LeaveForm({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
+              {/* Hidden Record Type field - always "Leave" */}
+              <FormField
+                control={form.control}
+                name="recordType"
+                render={({ field }) => (
+                  <FormItem className="hidden">
+                    <FormControl>
+                      <Input type="hidden" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="employeeId"
@@ -128,11 +136,6 @@ export function LeaveForm({
                       disabled={isLoadingEmployees}
                       onValueChange={(value) => {
                         field.onChange(parseInt(value));
-                        // Find company for selected employee
-                        const employee = employees.find(emp => emp.id === parseInt(value));
-                        if (employee) {
-                          setSelectedCompany(employee.company);
-                        }
                       }}
                       value={field.value?.toString()}
                     >
@@ -145,9 +148,9 @@ export function LeaveForm({
                         {isLoadingEmployees ? (
                           <SelectItem value="loading" disabled>Loading...</SelectItem>
                         ) : (
-                          filteredEmployees.map((employee) => (
+                          employees.map((employee) => (
                             <SelectItem key={employee.id} value={employee.id.toString()}>
-                              {employee.fullName} ({employee.employeeCode})
+                              {employee.fullName || `${employee.firstName} ${employee.lastName}`} ({employee.employeeCode})
                             </SelectItem>
                           ))
                         )}
@@ -160,7 +163,7 @@ export function LeaveForm({
 
               <FormField
                 control={form.control}
-                name="leaveType"
+                name="details"
                 render={({ field }) => (
                   <FormItem className="col-span-2">
                     <FormLabel>Leave Type</FormLabel>
@@ -296,6 +299,25 @@ export function LeaveForm({
                           </FormLabel>
                         </div>
                       </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Current Date Field */}
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Record Date</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        defaultValue={new Date().toISOString().split('T')[0]}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
