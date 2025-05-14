@@ -1,4 +1,4 @@
-import { useRouter } from "wouter";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   FolderInput, 
@@ -28,7 +28,7 @@ function QuickAction({ icon, title, onClick }: QuickActionProps) {
 }
 
 export function QuickActions() {
-  const [, navigate] = useRouter();
+  const [, navigate] = useLocation();
 
   return (
     <Card>
