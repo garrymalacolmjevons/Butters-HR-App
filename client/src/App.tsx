@@ -11,6 +11,7 @@ import Deductions from "@/pages/deductions";
 import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
 import Reports from "@/pages/reports";
+import Settings from "@/pages/settings";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -89,6 +90,13 @@ function Router() {
         <ProtectedRoute component={() => (
           <Layout>
             <Reports />
+          </Layout>
+        )} />
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <Settings />
           </Layout>
         )} />
       </Route>
