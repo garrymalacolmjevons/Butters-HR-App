@@ -12,7 +12,8 @@ import {
   bulkImportEmployeeSchema,
   insertPayrollRecordSchema,
   insertExportRecordSchema,
-  insertEmailSettingsSchema
+  insertEmailSettingsSchema,
+  insertOvertimeRateSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -613,6 +614,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = await storage.getDashboardData();
       res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Overtime Rates routes
+  app.get("/api/overtime-rates", isAuthenticated, async (req, res, next) => {
+    try {
+      const rates = await storage.getOvertimeRates();
+      res.json(rates);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/overtime-rates/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ID format" });
+      }
+      
+      const rate = await storage.getOvertimeRate(id);
+      if (!rate) {
+        return res.status(404).json({ error: "Overtime rate not found" });
+      }
+      
+      res.json(rate);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/overtime-rates", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const user = req.user as any;
+      
+      // Check if user is admin
+      if (!user.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can manage overtime rates" });
+      }
+      
+      // Validate input
+      const parsedData = insertOvertimeRateSchema.parse({
+        ...req.body,
+        updatedBy: userId
+      });
+      
+      // Create the overtime rate
+      const newRate = await storage.createOvertimeRate(parsedData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_OVERTIME_RATE",
+        details: `Created ${newRate.overtimeType} overtime rate (${newRate.rate}x)`
+      });
+      
+      res.status(201).json(newRate);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.put("/api/overtime-rates/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ID format" });
+      }
+      
+      const userId = (req.user as any).id;
+      const user = req.user as any;
+      
+      // Check if user is admin
+      if (!user.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can manage overtime rates" });
+      }
+      
+      // Check if rate exists
+      const existingRate = await storage.getOvertimeRate(id);
+      if (!existingRate) {
+        return res.status(404).json({ error: "Overtime rate not found" });
+      }
+      
+      // Validate input
+      const parsedData = insertOvertimeRateSchema.partial().parse({
+        ...req.body,
+        updatedBy: userId
+      });
+      
+      // Update the overtime rate
+      const updatedRate = await storage.updateOvertimeRate(id, parsedData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "UPDATE_OVERTIME_RATE",
+        details: `Updated ${updatedRate?.overtimeType} overtime rate (${updatedRate?.rate}x)`
+      });
+      
+      res.json(updatedRate);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.delete("/api/overtime-rates/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ID format" });
+      }
+      
+      const userId = (req.user as any).id;
+      const user = req.user as any;
+      
+      // Check if user is admin
+      if (!user.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can manage overtime rates" });
+      }
+      
+      // Check if rate exists
+      const existingRate = await storage.getOvertimeRate(id);
+      if (!existingRate) {
+        return res.status(404).json({ error: "Overtime rate not found" });
+      }
+      
+      // Delete the overtime rate
+      const success = await storage.deleteOvertimeRate(id);
+      
+      if (success) {
+        // Log activity
+        await storage.createActivityLog({
+          userId,
+          action: "DELETE_OVERTIME_RATE",
+          details: `Deleted ${existingRate.overtimeType} overtime rate`
+        });
+        
+        res.status(204).end();
+      } else {
+        res.status(500).json({ error: "Failed to delete overtime rate" });
+      }
     } catch (error) {
       next(error);
     }
