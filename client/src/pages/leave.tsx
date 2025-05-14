@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { LeaveRecord, InsertLeaveRecord } from "@shared/schema";
+import { PayrollRecord, InsertPayrollRecord } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -17,7 +17,7 @@ import { LeaveSummary } from "@/components/leave/leave-summary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Type for leave records with employee info
-type LeaveRecordWithExtras = LeaveRecord & { employeeName: string; company: string };
+type LeaveRecordWithExtras = PayrollRecord & { employeeName: string; company: string };
 
 export default function Leave() {
   const [location, setLocation] = useLocation();
@@ -124,7 +124,7 @@ export default function Leave() {
   // Update leave mutation
   const updateLeaveMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<InsertLeaveRecord> }) => {
-      const res = await apiRequest("PUT", `/api/leave/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/leave/${id}`, data);
       return res.json();
     },
     onSuccess: () => {
