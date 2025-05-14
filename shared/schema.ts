@@ -67,6 +67,7 @@ export const payrollRecords = pgTable("payroll_records", {
   recurring: boolean("recurring").default(false), // For recurring deductions/allowances
   approved: boolean("approved").default(false),
   notes: text("notes"),
+  documentImage: text("document_image"), // URL to the signed document image
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
