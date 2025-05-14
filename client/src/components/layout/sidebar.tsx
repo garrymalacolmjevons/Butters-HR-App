@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
@@ -11,13 +13,25 @@ import {
   FileSpreadsheet,
   FolderInput,
   Settings,
-  LogOut
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { logout } = useAuth();
+  const [expanded, setExpanded] = useState(true);
+  const isMobile = useIsMobile();
+
+  // Collapse sidebar on mobile by default
+  useEffect(() => {
+    if (isMobile) {
+      setExpanded(false);
+    }
+  }, [isMobile]);
 
   const isActive = (path: string) => {
     return location === path;
@@ -28,45 +42,50 @@ export default function Sidebar() {
     window.location.href = '/login';
   };
 
-  const SidebarIcon = ({ 
+  const toggleSidebar = () => {
+    setExpanded(!expanded);
+  };
+
+  const NavItem = ({ 
     icon: Icon, 
     path, 
-    tooltip, 
+    label, 
     onClick
   }: { 
     icon: any; 
     path?: string; 
-    tooltip: string; 
+    label: string; 
     onClick?: () => void;
   }) => {
     const isPathActive = path ? isActive(path) : false;
     
-    const iconContent = (
+    const content = (
       <div className={cn(
-        "relative flex items-center justify-center h-12 w-12 mt-2 mb-2 mx-auto shadow-lg",
-        "bg-neutral-800 text-primary-light hover:bg-primary hover:text-white",
-        "rounded-3xl hover:rounded-xl transition-all duration-300 ease-linear",
-        isPathActive && "bg-primary text-white rounded-xl"
+        "flex items-center h-12 px-3 my-1 rounded-lg transition-all duration-200",
+        "hover:bg-primary/20 hover:text-primary-foreground",
+        isPathActive ? "bg-primary text-white" : "text-neutral-300"
       )}>
-        <Icon className="h-6 w-6" />
+        <Icon className="h-5 w-5 min-w-5" />
+        {expanded && (
+          <span className="ml-3 whitespace-nowrap overflow-hidden text-sm font-medium">
+            {label}
+          </span>
+        )}
       </div>
     );
     
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {path ? (
-              <Link href={path}>{iconContent}</Link>
-            ) : (
-              <button onClick={onClick}>{iconContent}</button>
-            )}
-          </TooltipTrigger>
-          <TooltipContent side="right" className="bg-neutral-900 text-white">
-            {tooltip}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="px-2">
+        {path ? (
+          <Link href={path} className="block w-full">
+            {content}
+          </Link>
+        ) : (
+          <button className="w-full text-left" onClick={onClick}>
+            {content}
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -74,42 +93,83 @@ export default function Sidebar() {
     return location === "/" || location === "/dashboard";
   };
 
-  const dashboardIconContent = (
-    <div className={cn(
-      "relative flex items-center justify-center h-12 w-12 mt-2 mb-2 mx-auto shadow-lg",
-      "bg-neutral-800 text-primary-light hover:bg-primary hover:text-white",
-      "rounded-3xl hover:rounded-xl transition-all duration-300 ease-linear",
-      isActiveDashboard() && "bg-primary text-white rounded-xl"
-    )}>
-      <LayoutDashboard className="h-6 w-6" />
-    </div>
-  );
-
   return (
-    <div className="flex flex-col bg-neutral-800 w-16 h-screen">
-      <div className="flex-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link href="/dashboard">{dashboardIconContent}</Link>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="bg-neutral-900 text-white">
-              Dashboard
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <SidebarIcon icon={Users} path="/employees" tooltip="Employees" />
-        <SidebarIcon icon={Calendar} path="/leave" tooltip="Leave" />
-        <SidebarIcon icon={TrendingDown} path="/deductions" tooltip="Deductions" />
-        <SidebarIcon icon={Clock} path="/overtime" tooltip="Overtime" />
-        <SidebarIcon icon={BadgeDollarSign} path="/allowances" tooltip="Allowances" />
-        <SidebarIcon icon={FileSpreadsheet} path="/reports" tooltip="Reports" />
+    <aside className={cn(
+      "flex flex-col bg-neutral-800 text-white h-screen transition-all duration-300 relative",
+      expanded ? "w-56" : "w-16"
+    )}>
+      <div className="p-3 flex justify-between items-center">
+        {expanded && (
+          <div className="text-lg font-semibold ml-2 text-primary">Butters HR</div>
+        )}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={cn(
+            "text-neutral-300 hover:text-white hover:bg-neutral-700", 
+            expanded ? "ml-auto" : "mx-auto"
+          )}
+          onClick={toggleSidebar}
+        >
+          {expanded ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+        </Button>
       </div>
-      <div className="flex flex-col mb-3">
-        <SidebarIcon icon={FolderInput} path="/employees" tooltip="Import Data" />
-        <SidebarIcon icon={Settings} path="/settings" tooltip="Settings" />
-        <SidebarIcon icon={LogOut} tooltip="Logout" onClick={handleLogout} />
+
+      <div className="flex flex-col overflow-y-auto flex-1 py-2">
+        <NavItem 
+          icon={LayoutDashboard} 
+          path="/dashboard" 
+          label="Dashboard" 
+        />
+        <NavItem 
+          icon={Users} 
+          path="/employees" 
+          label="Employees" 
+        />
+        <NavItem 
+          icon={Calendar} 
+          path="/leave" 
+          label="Leave" 
+        />
+        <NavItem 
+          icon={TrendingDown} 
+          path="/deductions" 
+          label="Deductions" 
+        />
+        <NavItem 
+          icon={Clock} 
+          path="/overtime" 
+          label="Overtime" 
+        />
+        <NavItem 
+          icon={BadgeDollarSign} 
+          path="/allowances" 
+          label="Allowances" 
+        />
+        <NavItem 
+          icon={FileSpreadsheet} 
+          path="/reports" 
+          label="Reports" 
+        />
       </div>
-    </div>
+
+      <div className="mt-auto mb-4">
+        <NavItem 
+          icon={FolderInput} 
+          path="/import" 
+          label="Import Data" 
+        />
+        <NavItem 
+          icon={Settings} 
+          path="/settings" 
+          label="Settings" 
+        />
+        <NavItem 
+          icon={LogOut} 
+          label="Logout" 
+          onClick={handleLogout} 
+        />
+      </div>
+    </aside>
   );
 }
