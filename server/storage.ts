@@ -2,7 +2,7 @@ import {
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, ExportRecord, InsertExportRecord,
   EmailSettings, InsertEmailSettings, ActivityLog, InsertActivityLog,
-  EmployeeWithFullName
+  OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
 } from "@shared/schema";
 
 // Storage interface
@@ -36,6 +36,14 @@ export interface IStorage {
   // Email Settings
   getEmailSettings(): Promise<EmailSettings | undefined>;
   saveEmailSettings(settings: InsertEmailSettings): Promise<EmailSettings>;
+  
+  // Overtime Rates
+  getOvertimeRates(): Promise<OvertimeRate[]>;
+  getOvertimeRate(id: number): Promise<OvertimeRate | undefined>;
+  getOvertimeRateByType(overtimeType: string): Promise<OvertimeRate | undefined>;
+  createOvertimeRate(overtimeRate: InsertOvertimeRate): Promise<OvertimeRate>;
+  updateOvertimeRate(id: number, overtimeRate: Partial<InsertOvertimeRate>): Promise<OvertimeRate | undefined>;
+  deleteOvertimeRate(id: number): Promise<boolean>;
   
   // Export Records
   getExportRecords(filter?: { userId?: number }): Promise<(ExportRecord & { userName: string })[]>;
@@ -71,6 +79,7 @@ export class MemStorage implements IStorage {
   private emailSettings: Map<number, EmailSettings>;
   private exportRecords: Map<number, ExportRecord>;
   private activityLogs: Map<number, ActivityLog>;
+  private overtimeRates: Map<number, OvertimeRate>;
   
   private userId: number;
   private employeeId: number;
@@ -78,6 +87,7 @@ export class MemStorage implements IStorage {
   private emailSettingsId: number;
   private exportId: number;
   private activityLogId: number;
+  private overtimeRateId: number;
   
   constructor() {
     this.users = new Map();
@@ -86,6 +96,7 @@ export class MemStorage implements IStorage {
     this.emailSettings = new Map();
     this.exportRecords = new Map();
     this.activityLogs = new Map();
+    this.overtimeRates = new Map();
     
     this.userId = 1;
     this.employeeId = 1;
@@ -93,6 +104,7 @@ export class MemStorage implements IStorage {
     this.emailSettingsId = 1;
     this.exportId = 1;
     this.activityLogId = 1;
+    this.overtimeRateId = 1;
     
     // Add default admin user
     this.createUser({
