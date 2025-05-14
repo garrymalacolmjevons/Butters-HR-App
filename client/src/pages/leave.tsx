@@ -76,19 +76,19 @@ export default function Leave() {
   // Calculate summary data
   const leaveSummary = {
     annual: {
-      total: leaveRecords.filter(l => l.leaveType === "Annual Leave").length,
-      butters: leaveRecords.filter(l => l.leaveType === "Annual Leave" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.leaveType === "Annual Leave" && l.company === "Makana").length,
+      total: leaveRecords.filter(l => l.subType === "Annual Leave").length,
+      butters: leaveRecords.filter(l => l.subType === "Annual Leave" && l.company === "Butters").length,
+      makana: leaveRecords.filter(l => l.subType === "Annual Leave" && l.company === "Makana").length,
     },
     sick: {
-      total: leaveRecords.filter(l => l.leaveType === "Sick Leave").length,
-      butters: leaveRecords.filter(l => l.leaveType === "Sick Leave" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.leaveType === "Sick Leave" && l.company === "Makana").length,
+      total: leaveRecords.filter(l => l.subType === "Sick Leave").length,
+      butters: leaveRecords.filter(l => l.subType === "Sick Leave" && l.company === "Butters").length,
+      makana: leaveRecords.filter(l => l.subType === "Sick Leave" && l.company === "Makana").length,
     },
     unpaid: {
-      total: leaveRecords.filter(l => l.leaveType === "Unpaid Leave").length,
-      butters: leaveRecords.filter(l => l.leaveType === "Unpaid Leave" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.leaveType === "Unpaid Leave" && l.company === "Makana").length,
+      total: leaveRecords.filter(l => l.subType === "Unpaid Leave").length,
+      butters: leaveRecords.filter(l => l.subType === "Unpaid Leave" && l.company === "Butters").length,
+      makana: leaveRecords.filter(l => l.subType === "Unpaid Leave" && l.company === "Makana").length,
     },
     pending: {
       total: leaveRecords.filter(l => l.status === "Pending").length,
@@ -99,7 +99,7 @@ export default function Leave() {
   
   // Create leave mutation
   const createLeaveMutation = useMutation({
-    mutationFn: async (data: InsertLeaveRecord) => {
+    mutationFn: async (data: InsertPayrollRecord) => {
       const res = await apiRequest("POST", "/api/leave", data);
       return res.json();
     },
@@ -123,7 +123,7 @@ export default function Leave() {
   
   // Update leave mutation
   const updateLeaveMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertLeaveRecord> }) => {
+    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertPayrollRecord> }) => {
       const res = await apiRequest("PATCH", `/api/leave/${id}`, data);
       return res.json();
     },
@@ -193,7 +193,7 @@ export default function Leave() {
     }
   };
   
-  const handleFormSubmit = (values: InsertLeaveRecord) => {
+  const handleFormSubmit = (values: InsertPayrollRecord) => {
     if (formMode === "create") {
       createLeaveMutation.mutate(values);
     } else if (selectedLeave) {
