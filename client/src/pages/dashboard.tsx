@@ -30,42 +30,42 @@ export default function Dashboard() {
         {/* Summary Cards */}
         <SummaryCard
           title="Total Employees"
-          value={isLoadingDashboard ? "Loading..." : dashboardData?.employeeCounts.total}
+          value={isLoadingDashboard ? "Loading..." : dashboardData?.employeeCount || 0}
           icon={<Users />}
           breakdown={
             isLoadingDashboard
               ? { butters: "-", makana: "-" }
               : {
-                  butters: dashboardData?.employeeCounts.butters,
-                  makana: dashboardData?.employeeCounts.makana,
+                  butters: "Hi-Tec Security",
+                  makana: "Staff",
                 }
           }
         />
         
         <SummaryCard
           title="Pending Leave"
-          value={isLoadingDashboard ? "Loading..." : dashboardData?.pendingLeave.total}
+          value={isLoadingDashboard ? "Loading..." : dashboardData?.pendingLeaveCount || 0}
           icon={<Calendar />}
           breakdown={
             isLoadingDashboard
               ? { butters: "-", makana: "-" }
               : {
-                  butters: dashboardData?.pendingLeave.butters,
-                  makana: dashboardData?.pendingLeave.makana,
+                  butters: "Pending Approval",
+                  makana: "This Month",
                 }
           }
         />
         
         <SummaryCard
           title="Monthly Overtime"
-          value={isLoadingDashboard ? "Loading..." : `${dashboardData?.overtimeHours.total} hrs`}
+          value={isLoadingDashboard ? "Loading..." : `${dashboardData?.overtimeHours || 0} hrs`}
           icon={<Clock />}
           breakdown={
             isLoadingDashboard
               ? { butters: "-", makana: "-" }
               : {
-                  butters: `${dashboardData?.overtimeHours.butters} hrs`,
-                  makana: `${dashboardData?.overtimeHours.makana} hrs`,
+                  butters: "Regular Hours",
+                  makana: "This Month",
                 }
           }
         />

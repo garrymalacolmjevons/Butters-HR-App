@@ -21,8 +21,11 @@ export function SummaryCard({ title, value, icon, breakdown }: SummaryCardProps)
         </div>
         <p className="text-3xl font-bold">{value}</p>
         {breakdown && (
-          <div className="text-sm text-neutral-500 mt-2">
-            <span className="text-secondary">Butters: {breakdown.butters}</span> | <span className="text-primary">Makana: {breakdown.makana}</span>
+          <div className="text-sm text-neutral-500 mt-2 grid grid-cols-1 gap-1">
+            <div className="flex items-center justify-between">
+              <span className="text-secondary font-medium">{breakdown.butters}</span>
+              <span className="text-primary font-medium">{breakdown.makana}</span>
+            </div>
           </div>
         )}
       </CardContent>
