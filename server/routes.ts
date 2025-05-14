@@ -119,7 +119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: user.id,
             username: user.username,
             fullName: user.fullName,
+            email: user.email,
             isAdmin: user.isAdmin,
+            role: user.role,
+            active: user.active,
           });
         });
       })(req, res, next);
@@ -154,7 +157,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         fullName: user.fullName,
+        email: user.email,
         isAdmin: user.isAdmin,
+        role: user.role,
+        active: user.active,
       });
     }
     res.status(401).json({ error: "Not authenticated" });
