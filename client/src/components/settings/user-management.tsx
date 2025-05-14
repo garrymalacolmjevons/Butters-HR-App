@@ -73,6 +73,17 @@ export default function UserManagement() {
   // Query users
   const { data: users, isLoading } = useQuery({
     queryKey: ['/api/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: false,
   });
@@ -188,9 +199,16 @@ export default function UserManagement() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${id}`, {
         method: 'DELETE',
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to delete user: ${response.statusText}`);
+      }
+      
+      return id;
     },
     onSuccess: () => {
       toast({
