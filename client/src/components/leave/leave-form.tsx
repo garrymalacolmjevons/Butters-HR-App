@@ -28,10 +28,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmployeeWithFullName } from "@shared/schema";
+import { WebcamCapture } from "@/components/common/webcam-capture";
 
 // Extend the insert schema with validation
 const leaveFormSchema = insertPayrollRecordSchema.extend({
   // Add any additional validation or fields if needed
+  documentImage: z.string().optional().nullable(),
 });
 
 type LeaveFormValues = z.infer<typeof leaveFormSchema>;
@@ -55,6 +57,9 @@ export function LeaveForm({
 }: LeaveFormProps) {
   const [selectedStartDate, setSelectedStartDate] = useState<string>("");
   const [selectedEndDate, setSelectedEndDate] = useState<string>("");
+  const [capturedImage, setCapturedImage] = useState<string | null>(defaultValues?.documentImage || null);
+  const [showWebcam, setShowWebcam] = useState<boolean>(false);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   // Fetch employees for the dropdown
   const { data: employees = [], isLoading: isLoadingEmployees } = useQuery<EmployeeWithFullName[]>({
@@ -68,6 +73,7 @@ export function LeaveForm({
       recordType: "Leave",
       status: defaultValues?.status || "Pending",
       totalDays: defaultValues?.totalDays || 1,
+      documentImage: defaultValues?.documentImage || null,
     },
   });
 
@@ -94,10 +100,54 @@ export function LeaveForm({
       const formattedEndDate = defaultValues.endDate.toString().split('T')[0];
       setSelectedEndDate(formattedEndDate);
     }
+    if (defaultValues?.documentImage) {
+      setCapturedImage(defaultValues.documentImage);
+    }
   }, [defaultValues]);
 
+  // Handle webcam capture
+  const handleCapture = async (imageDataUrl: string | null) => {
+    if (imageDataUrl) {
+      setIsUploading(true);
+      try {
+        // Upload the image to the server
+        const response = await fetch('/api/upload-document', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ imageData: imageDataUrl }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to upload document image');
+        }
+        
+        const data = await response.json();
+        setCapturedImage(data.url);
+        form.setValue('documentImage', data.url);
+        setShowWebcam(false);
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        // Keep the captured image locally even if upload fails
+        setCapturedImage(imageDataUrl);
+        form.setValue('documentImage', imageDataUrl);
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      setCapturedImage(null);
+      form.setValue('documentImage', null);
+    }
+  };
+
   const handleSubmit = (values: LeaveFormValues) => {
-    onSubmit(values);
+    // Ensure the document image URL is included
+    const valuesWithImage = {
+      ...values,
+      documentImage: capturedImage,
+    };
+    onSubmit(valuesWithImage);
   };
 
   return (
@@ -264,6 +314,71 @@ export function LeaveForm({
                       <Textarea placeholder="Enter any additional information about this leave" {...field} />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Document Image Capture */}
+              <FormField
+                control={form.control}
+                name="documentImage"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Leave Document</FormLabel>
+                    <div className="space-y-4">
+                      {showWebcam ? (
+                        <div className="p-4 border rounded-md">
+                          <WebcamCapture 
+                            onCapture={handleCapture} 
+                            initialImage={capturedImage} 
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col space-y-4">
+                          {capturedImage && (
+                            <div className="border rounded-md overflow-hidden max-w-full">
+                              <img 
+                                src={capturedImage} 
+                                alt="Captured document" 
+                                className="w-full h-auto max-h-[200px] object-contain"
+                              />
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              onClick={() => setShowWebcam(true)}
+                              disabled={isUploading}
+                            >
+                              {capturedImage ? "Retake Image" : "Capture Document"}
+                            </Button>
+                            {capturedImage && (
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                onClick={() => {
+                                  setCapturedImage(null);
+                                  field.onChange(null);
+                                }}
+                                disabled={isUploading}
+                              >
+                                Remove Image
+                              </Button>
+                            )}
+                            {isUploading && (
+                              <span className="text-sm text-muted-foreground">
+                                Uploading image...
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <FormDescription>
+                        Capture a photo of the signed leave document using your webcam.
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
                   </FormItem>
                 )}
               />
