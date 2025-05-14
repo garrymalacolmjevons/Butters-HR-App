@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertLeaveRecordSchema, LeaveRecord, Employee } from "@shared/schema";
+import { insertPayrollRecordSchema, PayrollRecord, Employee } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { calculateDaysBetween } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EmployeeWithFullName } from "@shared/schema";
 
 // Extend the insert schema with validation
-const leaveFormSchema = insertLeaveRecordSchema.extend({
+const leaveFormSchema = insertPayrollRecordSchema.extend({
   // Add any additional validation or fields if needed
 });
 

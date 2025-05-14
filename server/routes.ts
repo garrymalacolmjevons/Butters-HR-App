@@ -29,20 +29,23 @@ declare module "express-session" {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup sessions
+  // Create HTTP server
+  const server = createServer(app);
+
+  // Set up session management
   app.use(
     session({
       cookie: { maxAge: 86400000 }, // 24 hours
       store: new MemoryStoreSession({
-        checkPeriod: 86400000, // Prune expired entries every 24h
+        checkPeriod: 86400000, // prune expired entries every 24h
       }),
       resave: false,
       saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "hi-tec-security-hr-portal",
+      secret: "keyboard cat", // In production, use environment variable
     })
   );
 
-  // Setup passport
+  // Configure passport for authentication
   app.use(passport.initialize());
   app.use(passport.session());
 
@@ -50,16 +53,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        
         if (!user) {
-          return done(null, false, { message: "Invalid username" });
+          return done(null, false, { message: "Incorrect username" });
         }
-        
-        // In production, we would compare hashed passwords
         if (user.password !== password) {
-          return done(null, false, { message: "Invalid password" });
+          // This is insecure. In production, use bcrypt or similar
+          return done(null, false, { message: "Incorrect password" });
         }
-        
         return done(null, user);
       } catch (err) {
         return done(err);
@@ -80,34 +80,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Authentication middleware
+  // Middleware to check if user is authenticated
   const isAuthenticated = (req: Request, res: Response, next: Function) => {
     if (req.isAuthenticated()) {
       return next();
     }
-    res.status(401).json({ message: "Unauthorized" });
+    res.status(401).json({ error: "Authentication required" });
   };
 
-  // Error handling utility
-  const handleZodError = (error: unknown): string => {
-    if (error instanceof ZodError) {
-      return fromZodError(error).message;
-    }
-    return String(error);
-  };
-
-  // Authentication routes
+  // Auth routes
   app.post("/api/auth/login", (req, res, next) => {
     try {
-      const validatedData = userLoginSchema.parse(req.body);
+      const { username, password } = userLoginSchema.parse(req.body);
       
       passport.authenticate("local", (err, user, info) => {
         if (err) {
           return next(err);
         }
-        
         if (!user) {
-          return res.status(401).json({ message: info.message });
+          return res.status(401).json({ error: info?.message || "Login failed" });
         }
         
         req.logIn(user, (err) => {
@@ -115,851 +106,517 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return next(err);
           }
           
-          // Log activity
+          // Log the activity
           storage.createActivityLog({
             userId: user.id,
-            action: "Login",
+            action: "User Login",
             details: `User ${user.username} logged in`
           });
           
-          return res.status(200).json({
+          return res.json({
             id: user.id,
             username: user.username,
             fullName: user.fullName,
-            company: user.company,
-            isAdmin: user.isAdmin
+            isAdmin: user.isAdmin,
           });
         });
       })(req, res, next);
     } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
     }
   });
 
-  app.get("/api/auth/user", isAuthenticated, (req, res) => {
-    const user = req.user as any;
-    res.json({
-      id: user.id,
-      username: user.username,
-      fullName: user.fullName,
-      company: user.company,
-      isAdmin: user.isAdmin
+  app.post("/api/auth/logout", (req, res) => {
+    if (req.session.userId) {
+      storage.createActivityLog({
+        userId: req.session.userId,
+        action: "User Logout",
+        details: "User logged out"
+      });
+    }
+    
+    req.logout(() => {
+      req.session.destroy(() => {
+        res.status(200).json({ message: "Logged out successfully" });
+      });
     });
   });
 
-  app.post("/api/auth/logout", isAuthenticated, (req, res) => {
-    // Log activity
-    const user = req.user as any;
-    storage.createActivityLog({
-      userId: user.id,
-      action: "Logout",
-      details: `User ${user.username} logged out`
-    });
-    
-    req.logout(() => {
-      res.status(200).json({ message: "Logged out successfully" });
-    });
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated()) {
+      const user = req.user as any;
+      return res.json({
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        isAdmin: user.isAdmin,
+      });
+    }
+    res.status(401).json({ error: "Not authenticated" });
   });
 
   // Employee routes
-  app.get("/api/employees", isAuthenticated, async (req, res) => {
+  app.get("/api/employees", isAuthenticated, async (req, res, next) => {
     try {
-      const { company, department, status } = req.query as { company?: string; department?: string; status?: string };
-      const employees = await storage.getEmployees({ company, department, status });
+      const { department, status } = req.query;
+      const employees = await storage.getEmployees({
+        department: department as string,
+        status: status as string
+      });
       res.json(employees);
     } catch (error) {
-      res.status(500).json({ message: String(error) });
+      next(error);
     }
   });
 
-  app.get("/api/employees/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/employees/:id", isAuthenticated, async (req, res, next) => {
     try {
-      const employeeId = parseInt(req.params.id);
-      const employee = await storage.getEmployee(employeeId);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid employee ID" });
+      }
       
+      const employee = await storage.getEmployee(id);
       if (!employee) {
-        return res.status(404).json({ message: "Employee not found" });
+        return res.status(404).json({ error: "Employee not found" });
       }
       
-      res.json({
-        ...employee,
-        fullName: `${employee.firstName} ${employee.lastName}`
-      });
+      res.json(employee);
     } catch (error) {
-      res.status(500).json({ message: String(error) });
+      next(error);
     }
   });
 
-  app.post("/api/employees", isAuthenticated, async (req, res) => {
+  app.post("/api/employees", isAuthenticated, async (req, res, next) => {
     try {
-      const validatedData = insertEmployeeSchema.parse(req.body);
-      const employee = await storage.createEmployee(validatedData);
+      const userId = (req.user as any).id;
+      const data = insertEmployeeSchema.parse(req.body);
       
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
+      const employee = await storage.createEmployee(data);
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
         action: "Create Employee",
-        details: `Created employee ${employee.firstName} ${employee.lastName} (${employee.employeeCode})`
+        details: `Created employee ${employee.firstName} ${employee.lastName}`
       });
       
-      res.status(201).json({
-        ...employee,
-        fullName: `${employee.firstName} ${employee.lastName}`
-      });
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.put("/api/employees/:id", isAuthenticated, async (req, res) => {
-    try {
-      const employeeId = parseInt(req.params.id);
-      const validatedData = insertEmployeeSchema.partial().parse(req.body);
-      
-      const updatedEmployee = await storage.updateEmployee(employeeId, validatedData);
-      
-      if (!updatedEmployee) {
-        return res.status(404).json({ message: "Employee not found" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Update Employee",
-        details: `Updated employee ${updatedEmployee.firstName} ${updatedEmployee.lastName} (${updatedEmployee.employeeCode})`
-      });
-      
-      res.json({
-        ...updatedEmployee,
-        fullName: `${updatedEmployee.firstName} ${updatedEmployee.lastName}`
-      });
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  // Import employee data from VIP
-  app.post("/api/employees/import", isAuthenticated, express.raw({ type: 'text/csv', limit: '10mb' }), async (req, res) => {
-    try {
-      // Parse CSV data
-      const csvString = req.body.toString();
-      const records = parse(csvString, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-      });
-      
-      // Transform and validate data
-      const employeeData = records.map((record: any) => ({
-        employeeCode: record.employeeCode || record.employee_code || record.code,
-        firstName: record.firstName || record.first_name || record.firstname,
-        lastName: record.lastName || record.last_name || record.lastname,
-        company: record.company,
-        department: record.department,
-        position: record.position || record.title || record.job_title,
-        status: record.status || 'Active'
-      }));
-      
-      // Validate the data
-      const validatedData = bulkImportEmployeeSchema.parse(employeeData);
-      
-      // Bulk create or update employees
-      const result = await storage.bulkCreateOrUpdateEmployees(validatedData);
-      
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Import Employees",
-        details: `Imported ${result.created} new employees and updated ${result.updated} existing employees`
-      });
-      
-      res.status(200).json({
-        message: `Successfully imported ${result.created} new employees and updated ${result.updated} existing employees`,
-        ...result
-      });
+      res.status(201).json(employee);
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({ 
-          message: "Invalid data format in the CSV file",
-          details: handleZodError(error)
-        });
+        return res.status(400).json({ error: fromZodError(error).message });
       }
-      res.status(500).json({ message: String(error) });
+      next(error);
     }
   });
 
-  // Leave record routes
-  app.get("/api/leave", isAuthenticated, async (req, res) => {
+  app.patch("/api/employees/:id", isAuthenticated, async (req, res, next) => {
     try {
-      const { employeeId, company, leaveType, status, startDate, endDate } = req.query as { 
-        employeeId?: string;
-        company?: string;
-        leaveType?: string;
-        status?: string;
-        startDate?: string;
-        endDate?: string;
-      };
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid employee ID" });
+      }
+      
+      const data = insertEmployeeSchema.partial().parse(req.body);
+      const employee = await storage.updateEmployee(id, data);
+      
+      if (!employee) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Employee",
+        details: `Updated employee ${employee.firstName} ${employee.lastName}`
+      });
+      
+      res.json(employee);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.post("/api/employees/import", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Parse CSV data from the request body
+      if (!req.body.csvData) {
+        return res.status(400).json({ error: "Missing CSV data" });
+      }
+      
+      const records = parse(req.body.csvData, {
+        columns: true,
+        skip_empty_lines: true
+      });
+      
+      // Validate each record using Zod schema
+      const employeeData = bulkImportEmployeeSchema.parse(records);
+      
+      // Bulk create or update employees
+      const result = await storage.bulkCreateOrUpdateEmployees(employeeData);
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Import Employees",
+        details: `Imported ${result.created} new employees, updated ${result.updated} existing employees`
+      });
+      
+      res.json(result);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  // Payroll Records routes
+  app.get("/api/payroll-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const { employeeId, recordType, status, startDate, endDate } = req.query;
       
       const filter: any = {};
+      if (employeeId) filter.employeeId = parseInt(employeeId as string);
+      if (recordType) filter.recordType = recordType as string;
+      if (status) filter.status = status as string;
+      if (startDate) filter.startDate = new Date(startDate as string);
+      if (endDate) filter.endDate = new Date(endDate as string);
       
-      if (employeeId) filter.employeeId = parseInt(employeeId);
-      if (company) filter.company = company;
-      if (leaveType) filter.leaveType = leaveType;
-      if (status) filter.status = status;
-      if (startDate) filter.startDate = new Date(startDate);
-      if (endDate) filter.endDate = new Date(endDate);
-      
-      const leaveRecords = await storage.getLeaveRecords(filter);
-      res.json(leaveRecords);
+      const records = await storage.getPayrollRecords(filter);
+      res.json(records);
     } catch (error) {
-      res.status(500).json({ message: String(error) });
+      next(error);
     }
   });
 
-  app.get("/api/leave/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/payroll-records/:id", isAuthenticated, async (req, res, next) => {
     try {
-      const leaveId = parseInt(req.params.id);
-      const leaveRecord = await storage.getLeaveRecord(leaveId);
-      
-      if (!leaveRecord) {
-        return res.status(404).json({ message: "Leave record not found" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
       }
       
-      res.json(leaveRecord);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.post("/api/leave", isAuthenticated, async (req, res) => {
-    try {
-      const validatedData = insertLeaveRecordSchema.parse(req.body);
-      const leaveRecord = await storage.createLeaveRecord(validatedData);
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(validatedData.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Create Leave Record",
-        details: `Created ${validatedData.leaveType} record for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.status(201).json(leaveRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.put("/api/leave/:id", isAuthenticated, async (req, res) => {
-    try {
-      const leaveId = parseInt(req.params.id);
-      const validatedData = insertLeaveRecordSchema.partial().parse(req.body);
-      
-      const updatedLeaveRecord = await storage.updateLeaveRecord(leaveId, validatedData);
-      
-      if (!updatedLeaveRecord) {
-        return res.status(404).json({ message: "Leave record not found" });
+      const record = await storage.getPayrollRecord(id);
+      if (!record) {
+        return res.status(404).json({ error: "Record not found" });
       }
       
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(updatedLeaveRecord.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Update Leave Record",
-        details: `Updated ${updatedLeaveRecord.leaveType} record for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.json(updatedLeaveRecord);
+      res.json(record);
     } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
+      next(error);
     }
   });
 
-  app.delete("/api/leave/:id", isAuthenticated, async (req, res) => {
+  app.post("/api/payroll-records", isAuthenticated, async (req, res, next) => {
     try {
-      const leaveId = parseInt(req.params.id);
-      const leaveRecord = await storage.getLeaveRecord(leaveId);
-      
-      if (!leaveRecord) {
-        return res.status(404).json({ message: "Leave record not found" });
-      }
-      
-      const deleted = await storage.deleteLeaveRecord(leaveId);
-      
-      if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete leave record" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Delete Leave Record",
-        details: `Deleted ${leaveRecord.leaveType} record for ${leaveRecord.employeeName}`
-      });
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  // Overtime record routes
-  app.get("/api/overtime", isAuthenticated, async (req, res) => {
-    try {
-      const { employeeId, company, startDate, endDate } = req.query as { 
-        employeeId?: string;
-        company?: string;
-        startDate?: string;
-        endDate?: string;
-      };
-      
-      const filter: any = {};
-      
-      if (employeeId) filter.employeeId = parseInt(employeeId);
-      if (company) filter.company = company;
-      if (startDate) filter.startDate = new Date(startDate);
-      if (endDate) filter.endDate = new Date(endDate);
-      
-      const overtimeRecords = await storage.getOvertimeRecords(filter);
-      res.json(overtimeRecords);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.get("/api/overtime/:id", isAuthenticated, async (req, res) => {
-    try {
-      const overtimeId = parseInt(req.params.id);
-      const overtimeRecord = await storage.getOvertimeRecord(overtimeId);
-      
-      if (!overtimeRecord) {
-        return res.status(404).json({ message: "Overtime record not found" });
-      }
-      
-      res.json(overtimeRecord);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.post("/api/overtime", isAuthenticated, async (req, res) => {
-    try {
-      const validatedData = insertOvertimeRecordSchema.parse(req.body);
-      const overtimeRecord = await storage.createOvertimeRecord(validatedData);
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(validatedData.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Create Overtime Record",
-        details: `Created overtime record of ${validatedData.hours} hours for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.status(201).json(overtimeRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.put("/api/overtime/:id", isAuthenticated, async (req, res) => {
-    try {
-      const overtimeId = parseInt(req.params.id);
-      const validatedData = insertOvertimeRecordSchema.partial().parse(req.body);
-      
-      const updatedOvertimeRecord = await storage.updateOvertimeRecord(overtimeId, validatedData);
-      
-      if (!updatedOvertimeRecord) {
-        return res.status(404).json({ message: "Overtime record not found" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(updatedOvertimeRecord.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Update Overtime Record",
-        details: `Updated overtime record for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.json(updatedOvertimeRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.delete("/api/overtime/:id", isAuthenticated, async (req, res) => {
-    try {
-      const overtimeId = parseInt(req.params.id);
-      const overtimeRecord = await storage.getOvertimeRecord(overtimeId);
-      
-      if (!overtimeRecord) {
-        return res.status(404).json({ message: "Overtime record not found" });
-      }
-      
-      const deleted = await storage.deleteOvertimeRecord(overtimeId);
-      
-      if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete overtime record" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Delete Overtime Record",
-        details: `Deleted overtime record for ${overtimeRecord.employeeName}`
-      });
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  // Deduction record routes
-  app.get("/api/deductions", isAuthenticated, async (req, res) => {
-    try {
-      const { employeeId, company, startDate, endDate } = req.query as { 
-        employeeId?: string;
-        company?: string;
-        startDate?: string;
-        endDate?: string;
-      };
-      
-      const filter: any = {};
-      
-      if (employeeId) filter.employeeId = parseInt(employeeId);
-      if (company) filter.company = company;
-      if (startDate) filter.startDate = new Date(startDate);
-      if (endDate) filter.endDate = new Date(endDate);
-      
-      const deductionRecords = await storage.getDeductionRecords(filter);
-      res.json(deductionRecords);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.get("/api/deductions/:id", isAuthenticated, async (req, res) => {
-    try {
-      const deductionId = parseInt(req.params.id);
-      const deductionRecord = await storage.getDeductionRecord(deductionId);
-      
-      if (!deductionRecord) {
-        return res.status(404).json({ message: "Deduction record not found" });
-      }
-      
-      res.json(deductionRecord);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.post("/api/deductions", isAuthenticated, async (req, res) => {
-    try {
-      const validatedData = insertDeductionRecordSchema.parse(req.body);
-      const deductionRecord = await storage.createDeductionRecord(validatedData);
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(validatedData.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Create Deduction Record",
-        details: `Created deduction record of ${validatedData.amount} for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.status(201).json(deductionRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.put("/api/deductions/:id", isAuthenticated, async (req, res) => {
-    try {
-      const deductionId = parseInt(req.params.id);
-      const validatedData = insertDeductionRecordSchema.partial().parse(req.body);
-      
-      const updatedDeductionRecord = await storage.updateDeductionRecord(deductionId, validatedData);
-      
-      if (!updatedDeductionRecord) {
-        return res.status(404).json({ message: "Deduction record not found" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(updatedDeductionRecord.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Update Deduction Record",
-        details: `Updated deduction record for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.json(updatedDeductionRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.delete("/api/deductions/:id", isAuthenticated, async (req, res) => {
-    try {
-      const deductionId = parseInt(req.params.id);
-      const deductionRecord = await storage.getDeductionRecord(deductionId);
-      
-      if (!deductionRecord) {
-        return res.status(404).json({ message: "Deduction record not found" });
-      }
-      
-      const deleted = await storage.deleteDeductionRecord(deductionId);
-      
-      if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete deduction record" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Delete Deduction Record",
-        details: `Deleted deduction record for ${deductionRecord.employeeName}`
-      });
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  // Allowance record routes
-  app.get("/api/allowances", isAuthenticated, async (req, res) => {
-    try {
-      const { employeeId, company, startDate, endDate } = req.query as { 
-        employeeId?: string;
-        company?: string;
-        startDate?: string;
-        endDate?: string;
-      };
-      
-      const filter: any = {};
-      
-      if (employeeId) filter.employeeId = parseInt(employeeId);
-      if (company) filter.company = company;
-      if (startDate) filter.startDate = new Date(startDate);
-      if (endDate) filter.endDate = new Date(endDate);
-      
-      const allowanceRecords = await storage.getAllowanceRecords(filter);
-      res.json(allowanceRecords);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.get("/api/allowances/:id", isAuthenticated, async (req, res) => {
-    try {
-      const allowanceId = parseInt(req.params.id);
-      const allowanceRecord = await storage.getAllowanceRecord(allowanceId);
-      
-      if (!allowanceRecord) {
-        return res.status(404).json({ message: "Allowance record not found" });
-      }
-      
-      res.json(allowanceRecord);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.post("/api/allowances", isAuthenticated, async (req, res) => {
-    try {
-      const validatedData = insertAllowanceRecordSchema.parse(req.body);
-      const allowanceRecord = await storage.createAllowanceRecord(validatedData);
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(validatedData.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Create Allowance Record",
-        details: `Created allowance record of ${validatedData.amount} for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.status(201).json(allowanceRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.put("/api/allowances/:id", isAuthenticated, async (req, res) => {
-    try {
-      const allowanceId = parseInt(req.params.id);
-      const validatedData = insertAllowanceRecordSchema.partial().parse(req.body);
-      
-      const updatedAllowanceRecord = await storage.updateAllowanceRecord(allowanceId, validatedData);
-      
-      if (!updatedAllowanceRecord) {
-        return res.status(404).json({ message: "Allowance record not found" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      const employee = await storage.getEmployee(updatedAllowanceRecord.employeeId);
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Update Allowance Record",
-        details: `Updated allowance record for ${employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'}`
-      });
-      
-      res.json(updatedAllowanceRecord);
-    } catch (error) {
-      res.status(400).json({ message: handleZodError(error) });
-    }
-  });
-
-  app.delete("/api/allowances/:id", isAuthenticated, async (req, res) => {
-    try {
-      const allowanceId = parseInt(req.params.id);
-      const allowanceRecord = await storage.getAllowanceRecord(allowanceId);
-      
-      if (!allowanceRecord) {
-        return res.status(404).json({ message: "Allowance record not found" });
-      }
-      
-      const deleted = await storage.deleteAllowanceRecord(allowanceId);
-      
-      if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete allowance record" });
-      }
-      
-      // Log activity
-      const user = req.user as any;
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Delete Allowance Record",
-        details: `Deleted allowance record for ${allowanceRecord.employeeName}`
-      });
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  // Dashboard data
-  app.get("/api/dashboard", isAuthenticated, async (req, res) => {
-    try {
-      const dashboardData = await storage.getDashboardData();
-      res.json(dashboardData);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  // Activity logs
-  app.get("/api/activity-logs", isAuthenticated, async (req, res) => {
-    try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const activityLogs = await storage.getActivityLogs(limit);
-      res.json(activityLogs);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  // Report and export routes
-  app.get("/api/export-records", isAuthenticated, async (req, res) => {
-    try {
-      const { company, userId } = req.query as { company?: string; userId?: string };
-      const filter: any = {};
-      
-      if (company) filter.company = company;
-      if (userId) filter.userId = parseInt(userId);
-      
-      const exportRecords = await storage.getExportRecords(filter);
-      res.json(exportRecords);
-    } catch (error) {
-      res.status(500).json({ message: String(error) });
-    }
-  });
-
-  app.post("/api/exports", isAuthenticated, async (req, res) => {
-    try {
-      const user = req.user as any;
-      const validatedData = insertExportRecordSchema.parse({
+      const userId = (req.user as any).id;
+      const data = insertPayrollRecordSchema.parse({
         ...req.body,
-        createdBy: user.id
+        createdBy: userId
       });
       
-      // Create export record
-      const exportRecord = await storage.createExportRecord(validatedData);
+      const record = await storage.createPayrollRecord(data);
       
-      // Get data for the report
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Create Payroll Record",
+        details: `Created ${record.recordType} record for employee ID ${record.employeeId}`
+      });
+      
+      res.status(201).json(record);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.patch("/api/payroll-records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const data = insertPayrollRecordSchema.partial().parse(req.body);
+      const record = await storage.updatePayrollRecord(id, data);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Record not found" });
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Payroll Record",
+        details: `Updated ${record.recordType} record ID ${record.id}`
+      });
+      
+      res.json(record);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.delete("/api/payroll-records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      // Get the record first for the log
+      const record = await storage.getPayrollRecord(id);
+      if (!record) {
+        return res.status(404).json({ error: "Record not found" });
+      }
+      
+      const result = await storage.deletePayrollRecord(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Record not found or could not be deleted" });
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Delete Payroll Record",
+        details: `Deleted ${record.recordType} record ID ${id}`
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Email Settings routes
+  app.get("/api/email-settings", isAuthenticated, async (req, res, next) => {
+    try {
+      const settings = await storage.getEmailSettings();
+      if (!settings) {
+        return res.status(404).json({ error: "Email settings not found" });
+      }
+      
+      // Don't return the SMTP password for security
+      const safeSettings = {
+        ...settings,
+        smtpPassword: undefined  // Remove password from response
+      };
+      
+      res.json(safeSettings);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/email-settings", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const user = req.user as any;
+      
+      // Check if user is admin
+      if (!user.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can modify email settings" });
+      }
+      
+      const data = insertEmailSettingsSchema.parse({
+        ...req.body,
+        updatedBy: userId
+      });
+      
+      const settings = await storage.saveEmailSettings(data);
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Email Settings",
+        details: `Updated email settings`
+      });
+      
+      // Don't return the SMTP password for security
+      const safeSettings = {
+        ...settings,
+        smtpPassword: undefined  // Remove password from response
+      };
+      
+      res.json(safeSettings);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  // Export Records routes
+  app.get("/api/exports", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const user = req.user as any;
+      
+      let filter = {};
+      
+      // If not admin, only show user's own exports
+      if (!user.isAdmin) {
+        filter = { userId };
+      }
+      
+      const records = await storage.getExportRecords(filter);
+      res.json(records);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/exports", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Validate export request
+      const { reportName, month, includeRecordTypes, format = 'xlsx' } = req.body;
+      
+      if (!reportName || !month || !includeRecordTypes || !includeRecordTypes.length) {
+        return res.status(400).json({ error: "Missing required export parameters" });
+      }
+      
+      // Create export record first
+      const exportRecord = await storage.createExportRecord({
+        createdBy: userId,
+        reportName,
+        month: new Date(month),
+        includeRecordTypes,
+        format
+      });
+      
+      // Get report data based on parameters
       const reportData = await storage.getReportData({
-        company: validatedData.company,
-        month: validatedData.month,
-        includeLeave: validatedData.includeLeave,
-        includeOvertime: validatedData.includeOvertime,
-        includeDeductions: validatedData.includeDeductions,
-        includeAllowances: validatedData.includeAllowances
+        month: new Date(month),
+        includeRecordTypes
       });
       
-      // Generate Excel file
+      // Create workbook
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = user.fullName;
       workbook.created = new Date();
+      workbook.modified = new Date();
+      workbook.creator = 'Butters Payroll App';
       
-      // Employees worksheet
+      // Add Employees sheet
       const employeesSheet = workbook.addWorksheet('Employees');
       employeesSheet.columns = [
         { header: 'Employee Code', key: 'employeeCode', width: 15 },
         { header: 'Full Name', key: 'fullName', width: 25 },
-        { header: 'Company', key: 'company', width: 12 },
         { header: 'Department', key: 'department', width: 15 },
         { header: 'Position', key: 'position', width: 20 },
-        { header: 'Status', key: 'status', width: 12 }
+        { header: 'Status', key: 'status', width: 10 }
       ];
       
-      reportData.employees.forEach(employee => {
-        employeesSheet.addRow({
-          employeeCode: employee.employeeCode,
-          fullName: employee.fullName,
-          company: employee.company,
-          department: employee.department,
-          position: employee.position,
-          status: employee.status
+      // Add employees data
+      employeesSheet.addRows(reportData.employees);
+      
+      // Add Records sheet
+      const recordsSheet = workbook.addWorksheet('Payroll Records');
+      recordsSheet.columns = [
+        { header: 'Date', key: 'date', width: 12 },
+        { header: 'Record Type', key: 'recordType', width: 15 },
+        { header: 'Employee', key: 'employeeName', width: 25 },
+        { header: 'Amount', key: 'amount', width: 12 },
+        { header: 'Hours', key: 'hours', width: 10 },
+        { header: 'Rate', key: 'rate', width: 10 },
+        { header: 'Total Days', key: 'totalDays', width: 10 },
+        { header: 'Status', key: 'status', width: 10 },
+        { header: 'Details', key: 'details', width: 30 }
+      ];
+      
+      // Add payroll records data
+      recordsSheet.addRows(reportData.payrollRecords);
+      
+      // Format the Excel data
+      const formatDate = (sheet: ExcelJS.Worksheet, dateColumns: string[]) => {
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1) { // Skip header row
+            dateColumns.forEach(col => {
+              const cell = row.getCell(col);
+              if (cell.value instanceof Date) {
+                cell.numFmt = 'yyyy-mm-dd';
+              }
+            });
+          }
         });
-      });
+      };
       
-      // Leave worksheet if included
-      if (validatedData.includeLeave && reportData.leave.length > 0) {
-        const leaveSheet = workbook.addWorksheet('Leave');
-        leaveSheet.columns = [
-          { header: 'Employee Code', key: 'employeeCode', width: 15 },
-          { header: 'Employee Name', key: 'employeeName', width: 25 },
-          { header: 'Leave Type', key: 'leaveType', width: 15 },
-          { header: 'Start Date', key: 'startDate', width: 12 },
-          { header: 'End Date', key: 'endDate', width: 12 },
-          { header: 'Total Days', key: 'totalDays', width: 12 },
-          { header: 'Status', key: 'status', width: 12 }
-        ];
+      formatDate(recordsSheet, ['date']);
+      
+      // Generate response based on requested format
+      if (format === 'xlsx') {
+        const buffer = await workbook.xlsx.writeBuffer();
         
-        for (const leave of reportData.leave) {
-          const employee = reportData.employees.find(e => e.id === leave.employeeId);
-          leaveSheet.addRow({
-            employeeCode: employee?.employeeCode,
-            employeeName: leave.employeeName,
-            leaveType: leave.leaveType,
-            startDate: leave.startDate,
-            endDate: leave.endDate,
-            totalDays: leave.totalDays,
-            status: leave.status
-          });
-        }
-      }
-      
-      // Overtime worksheet if included
-      if (validatedData.includeOvertime && reportData.overtime.length > 0) {
-        const overtimeSheet = workbook.addWorksheet('Overtime');
-        overtimeSheet.columns = [
-          { header: 'Employee Code', key: 'employeeCode', width: 15 },
-          { header: 'Employee Name', key: 'employeeName', width: 25 },
-          { header: 'Date', key: 'date', width: 12 },
-          { header: 'Hours', key: 'hours', width: 10 },
-          { header: 'Rate', key: 'rate', width: 10 },
-          { header: 'Approved', key: 'approved', width: 10 }
-        ];
+        // Log the activity
+        await storage.createActivityLog({
+          userId,
+          action: "Generate Export",
+          details: `Generated "${reportName}" export in ${format} format`
+        });
         
-        for (const overtime of reportData.overtime) {
-          const employee = reportData.employees.find(e => e.id === overtime.employeeId);
-          overtimeSheet.addRow({
-            employeeCode: employee?.employeeCode,
-            employeeName: overtime.employeeName,
-            date: overtime.date,
-            hours: overtime.hours,
-            rate: overtime.rate,
-            approved: overtime.approved ? 'Yes' : 'No'
-          });
-        }
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(reportName)}.xlsx`);
+        res.send(Buffer.from(buffer));
+      } else {
+        return res.status(400).json({ error: "Unsupported export format" });
       }
-      
-      // Deductions worksheet if included
-      if (validatedData.includeDeductions && reportData.deductions.length > 0) {
-        const deductionsSheet = workbook.addWorksheet('Deductions');
-        deductionsSheet.columns = [
-          { header: 'Employee Code', key: 'employeeCode', width: 15 },
-          { header: 'Employee Name', key: 'employeeName', width: 25 },
-          { header: 'Description', key: 'description', width: 25 },
-          { header: 'Amount', key: 'amount', width: 12 },
-          { header: 'Date', key: 'date', width: 12 },
-          { header: 'Recurring', key: 'recurring', width: 10 }
-        ];
-        
-        for (const deduction of reportData.deductions) {
-          const employee = reportData.employees.find(e => e.id === deduction.employeeId);
-          deductionsSheet.addRow({
-            employeeCode: employee?.employeeCode,
-            employeeName: deduction.employeeName,
-            description: deduction.description,
-            amount: deduction.amount,
-            date: deduction.date,
-            recurring: deduction.recurring ? 'Yes' : 'No'
-          });
-        }
-      }
-      
-      // Allowances worksheet if included
-      if (validatedData.includeAllowances && reportData.allowances.length > 0) {
-        const allowancesSheet = workbook.addWorksheet('Allowances');
-        allowancesSheet.columns = [
-          { header: 'Employee Code', key: 'employeeCode', width: 15 },
-          { header: 'Employee Name', key: 'employeeName', width: 25 },
-          { header: 'Description', key: 'description', width: 25 },
-          { header: 'Amount', key: 'amount', width: 12 },
-          { header: 'Date', key: 'date', width: 12 },
-          { header: 'Recurring', key: 'recurring', width: 10 }
-        ];
-        
-        for (const allowance of reportData.allowances) {
-          const employee = reportData.employees.find(e => e.id === allowance.employeeId);
-          allowancesSheet.addRow({
-            employeeCode: employee?.employeeCode,
-            employeeName: allowance.employeeName,
-            description: allowance.description,
-            amount: allowance.amount,
-            date: allowance.date,
-            recurring: allowance.recurring ? 'Yes' : 'No'
-          });
-        }
-      }
-      
-      // Write to buffer
-      const buffer = await workbook.xlsx.writeBuffer();
-      
-      // Log activity
-      storage.createActivityLog({
-        userId: user.id,
-        action: "Generate Export",
-        details: `Generated ${validatedData.reportName} for ${validatedData.company || 'All Companies'}`
-      });
-      
-      // Send response with file content
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=${validatedData.reportName.replace(/\s+/g, '_')}.xlsx`);
-      res.send(buffer);
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({ message: handleZodError(error) });
+        return res.status(400).json({ error: fromZodError(error).message });
       }
-      res.status(500).json({ message: String(error) });
+      next(error);
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // Activity Logs routes
+  app.get("/api/activity-logs", isAuthenticated, async (req, res, next) => {
+    try {
+      const user = req.user as any;
+      
+      // Check if user is admin
+      if (!user.isAdmin) {
+        return res.status(403).json({ error: "Only administrators can view activity logs" });
+      }
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const logs = await storage.getActivityLogs(limit);
+      
+      res.json(logs);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Dashboard data route
+  app.get("/api/dashboard", isAuthenticated, async (req, res, next) => {
+    try {
+      const data = await storage.getDashboardData();
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  return server;
 }
