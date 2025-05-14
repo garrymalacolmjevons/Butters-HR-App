@@ -18,18 +18,25 @@ async function seed() {
       isAdmin: true
     });
     console.log("Created admin user");
-    
+  } else {
+    console.log("Admin user already exists");
+  }
+  
+  // Check if HR manager user exists
+  const hrUser = await db.select().from(users).where(eq(users.username, "hrmanager"));
+  
+  if (hrUser.length === 0) {
     // Create HR manager user
     await db.insert(users).values({
       username: "hrmanager",
-      password: "hr123",
+      password: "hr123456", // Updated to meet 6-character minimum
       fullName: "HR Manager",
       company: "Makana",
       isAdmin: false
     });
     console.log("Created HR manager user");
   } else {
-    console.log("Admin user already exists");
+    console.log("HR manager user already exists");
   }
 }
 
