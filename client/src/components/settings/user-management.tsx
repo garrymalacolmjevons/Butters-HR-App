@@ -86,7 +86,15 @@ export default function UserManagement() {
 
   // Form for editing user
   const editForm = useForm<UserFormValues>({
-    resolver: zodResolver(formSchema.partial({ password: true, confirmPassword: true })),
+    resolver: zodResolver(z.object({
+      username: formSchema.shape.username,
+      fullName: formSchema.shape.fullName,
+      email: formSchema.shape.email.optional(),
+      role: formSchema.shape.role,
+      active: formSchema.shape.active,
+      password: formSchema.shape.password.optional(),
+      confirmPassword: formSchema.shape.confirmPassword.optional()
+    })),
     defaultValues: {
       username: '',
       fullName: '',
