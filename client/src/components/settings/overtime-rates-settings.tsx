@@ -84,18 +84,19 @@ export default function OvertimeRatesSettings() {
 
   // Fetch overtime rates
   const { data: rates, isLoading } = useQuery({
-    queryKey: ['/api/overtime-rates'],
-    queryFn: () => apiRequest<OvertimeRate[]>('/api/overtime-rates')
+    queryKey: ['/api/overtime-rates']
   });
 
   // Update rate mutation
   const updateRateMutation = useMutation({
     mutationFn: async (rate: OvertimeRate) => {
-      await apiRequest(`/api/overtime-rates/${rate.id}`, {
+      await fetch(`/api/overtime-rates/${rate.id}`, {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rate: rate.rate
-        })
+        }),
+        credentials: 'include'
       });
       return rate;
     },
