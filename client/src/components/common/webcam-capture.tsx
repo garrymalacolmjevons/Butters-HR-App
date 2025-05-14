@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, X, RotateCcw } from 'lucide-react';
+import { Camera, X, RotateCcw, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface WebcamCaptureProps {
@@ -11,8 +11,10 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(initialImage || null);
+  const [showWebcam, setShowWebcam] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Start webcam when capturing begins
   const startWebcam = useCallback(async () => {
@@ -25,6 +27,7 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
       
       setStream(mediaStream);
       setIsCapturing(true);
+      setShowWebcam(true);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -39,7 +42,7 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
       }
     } catch (error) {
       console.error('Error accessing webcam:', error);
-      alert('Unable to access the webcam. Please make sure you have granted permission to use the camera.');
+      alert('Unable to access the webcam. Please make sure you have granted permission to use the camera or try uploading an image instead.');
     }
   }, []);
 
@@ -50,6 +53,7 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
       setStream(null);
     }
     setIsCapturing(false);
+    setShowWebcam(false);
   }, [stream]);
 
   // Take photo from webcam
@@ -78,6 +82,27 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
     onCapture(null);
   }, [onCapture]);
 
+  // Handle file upload
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageDataUrl = e.target?.result as string;
+        setCapturedImage(imageDataUrl);
+        onCapture(imageDataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [onCapture]);
+
+  // Trigger file input click
+  const triggerFileUpload = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
@@ -90,17 +115,38 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
   return (
     <div className="flex flex-col space-y-4 w-full mt-2">
       {!isCapturing && !capturedImage && (
-        <Button 
-          type="button" 
-          onClick={startWebcam} 
-          className="flex items-center gap-2"
-        >
-          <Camera className="h-4 w-4" />
-          <span>Capture Document Image</span>
-        </Button>
+        <div className="flex flex-col space-y-3">
+          <p className="text-sm text-gray-500">Choose one of the options below to add a document image:</p>
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              type="button" 
+              onClick={startWebcam} 
+              className="flex items-center gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              <span>Use Webcam</span>
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={triggerFileUpload}
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Upload Image</span>
+            </Button>
+            <input 
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept="image/*"
+              onChange={handleFileUpload}
+            />
+          </div>
+        </div>
       )}
       
-      {isCapturing && (
+      {showWebcam && isCapturing && (
         <div className="space-y-4">
           <div className="border rounded-md overflow-hidden bg-black relative">
             <video
@@ -149,7 +195,9 @@ export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
               variant="outline"
               onClick={() => {
                 clearPhoto();
-                startWebcam();
+                if (showWebcam) {
+                  startWebcam();
+                }
               }}
               className="flex-1 sm:flex-none flex items-center gap-2"
             >
