@@ -70,10 +70,34 @@ export default function Sidebar() {
     );
   };
 
+  const isActiveDashboard = () => {
+    return location === "/" || location === "/dashboard";
+  };
+
+  const dashboardIconContent = (
+    <div className={cn(
+      "relative flex items-center justify-center h-12 w-12 mt-2 mb-2 mx-auto shadow-lg",
+      "bg-neutral-800 text-primary-light hover:bg-primary hover:text-white",
+      "rounded-3xl hover:rounded-xl transition-all duration-300 ease-linear",
+      isActiveDashboard() && "bg-primary text-white rounded-xl"
+    )}>
+      <LayoutDashboard className="h-6 w-6" />
+    </div>
+  );
+
   return (
     <div className="flex flex-col bg-neutral-800 w-16 h-screen">
       <div className="flex-1">
-        <SidebarIcon icon={LayoutDashboard} path="/" tooltip="Dashboard" />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/dashboard">{dashboardIconContent}</Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-neutral-900 text-white">
+              Dashboard
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <SidebarIcon icon={Users} path="/employees" tooltip="Employees" />
         <SidebarIcon icon={Calendar} path="/leave" tooltip="Leave" />
         <SidebarIcon icon={TrendingDown} path="/deductions" tooltip="Deductions" />

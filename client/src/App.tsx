@@ -43,6 +43,13 @@ function Router() {
           </Layout>
         )} />
       </Route>
+      <Route path="/dashboard">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <Dashboard />
+          </Layout>
+        )} />
+      </Route>
       <Route path="/employees">
         <ProtectedRoute component={() => (
           <Layout>
