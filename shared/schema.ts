@@ -21,6 +21,7 @@ export const leaveTypeEnum = pgEnum('leave_type', ['Annual Leave', 'Sick Leave',
 export const leaveStatusEnum = pgEnum('leave_status', ['Pending', 'Approved', 'Rejected']);
 export const employeeStatusEnum = pgEnum('employee_status', ['Active', 'On Leave', 'Terminated']);
 export const departmentEnum = pgEnum('department', ['Security', 'Administration', 'Operations']);
+export const overtimeTypeEnum = pgEnum('overtime_type', ['Weekday', 'Saturday', 'Sunday', 'Public Holiday']);
 
 // Users (HR staff)
 export const users = pgTable("users", {
@@ -101,6 +102,16 @@ export const activityLogs = pgTable("activity_logs", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Overtime Rates
+export const overtimeRates = pgTable("overtime_rates", {
+  id: serial("id").primaryKey(),
+  overtimeType: overtimeTypeEnum("overtime_type").notNull(),
+  rate: real("rate").notNull(),
+  description: text("description"),
+  updatedBy: integer("updated_by").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, dateJoined: true });
@@ -108,6 +119,7 @@ export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit
 export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({ id: true, createdAt: true });
 export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
+export const insertOvertimeRateSchema = createInsertSchema(overtimeRates).omit({ id: true, updatedAt: true });
 
 // Extended schemas with custom validation
 export const userLoginSchema = z.object({
