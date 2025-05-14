@@ -46,8 +46,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { userSchema } from '@shared/schema';
 
-const formSchema = userSchema.extend({
-  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters")
+// Define our own schema based on userSchema with confirmPassword
+const formSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters"),
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Invalid email address").optional().nullable(),
+  role: z.enum(['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']).default('Viewer'),
+  active: z.boolean().default(true)
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -87,13 +94,16 @@ export default function UserManagement() {
   // Form for editing user
   const editForm = useForm<UserFormValues>({
     resolver: zodResolver(z.object({
-      username: formSchema.shape.username,
-      fullName: formSchema.shape.fullName,
-      email: formSchema.shape.email.optional(),
-      role: formSchema.shape.role,
-      active: formSchema.shape.active,
-      password: formSchema.shape.password.optional(),
-      confirmPassword: formSchema.shape.confirmPassword.optional()
+      username: z.string().min(3, "Username must be at least 3 characters"),
+      fullName: z.string().min(1, "Full name is required"),
+      email: z.string().email("Invalid email address").optional().nullable(),
+      role: z.enum(['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']),
+      active: z.boolean(),
+      password: z.string().min(6, "Password must be at least 6 characters").optional(),
+      confirmPassword: z.string().optional()
+    }).refine((data) => !data.password || !data.confirmPassword || data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
     })),
     defaultValues: {
       username: '',
@@ -108,10 +118,18 @@ export default function UserManagement() {
   const createUserMutation = useMutation({
     mutationFn: async (data: Omit<UserFormValues, 'confirmPassword'>) => {
       const { confirmPassword, ...userData } = data;
-      return apiRequest('/api/users', {
+      const response = await fetch('/api/users', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create user: ${response.statusText}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -133,13 +151,21 @@ export default function UserManagement() {
 
   // Update user mutation
   const updateUserMutation = useMutation({
-    mutationFn: async (data: { id: number; userData: Partial<Omit<UserFormValues, 'confirmPassword'>> }) => {
+    mutationFn: async (data: { id: number; userData: Partial<UserFormValues> }) => {
       const { id, userData } = data;
       const { confirmPassword, ...userUpdateData } = userData;
-      return apiRequest(`/api/users/${id}`, {
+      const response = await fetch(`/api/users/${id}`, {
         method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userUpdateData),
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update user: ${response.statusText}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
