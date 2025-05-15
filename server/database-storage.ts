@@ -2,10 +2,12 @@ import { eq, and, gt, lt, desc, isNull, or, sql, count } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
+  insurancePolicies, policyPayments, policyExports,
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
-  ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
+  ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
+  InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment, PolicyExport, InsertPolicyExport
 } from "@shared/schema";
 import { IStorage } from "./storage";
 

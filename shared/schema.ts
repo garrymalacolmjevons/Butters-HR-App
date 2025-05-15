@@ -23,6 +23,8 @@ export const employeeStatusEnum = pgEnum('employee_status', ['Active', 'On Leave
 export const departmentEnum = pgEnum('department', ['Security', 'Administration', 'Operations']);
 export const overtimeTypeEnum = pgEnum('overtime_type', ['Weekday', 'Saturday', 'Sunday', 'Public Holiday']);
 export const userRoleEnum = pgEnum('user_role', ['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']);
+export const insuranceCompanyEnum = pgEnum('insurance_company', ['Sanlam Sky', 'Avbob', 'Old Mutual', 'Provident Fund']);
+export const policyStatusEnum = pgEnum('policy_status', ['Active', 'Cancelled', 'Pending', 'Suspended']);
 
 // Users (HR staff)
 export const users = pgTable("users", {
@@ -134,6 +136,49 @@ export const overtimeRates = pgTable("overtime_rates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Insurance Policies
+export const insurancePolicies = pgTable("insurance_policies", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull(),
+  company: insuranceCompanyEnum("company").notNull(),
+  policyNumber: text("policy_number").notNull(),
+  amount: real("amount").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  status: policyStatusEnum("status").default('Active'),
+  notes: text("notes"),
+  documentImage: text("document_image"),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: integer("updated_by"),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Policy Payments
+export const policyPayments = pgTable("policy_payments", {
+  id: serial("id").primaryKey(),
+  policyId: integer("policy_id").notNull(),
+  paymentDate: date("payment_date").notNull(),
+  amount: real("amount").notNull(),
+  paymentMethod: text("payment_method").default('Payroll Deduction'),
+  month: date("month").notNull(), // Month this payment applies to
+  notes: text("notes"),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Policy Exports
+export const policyExports = pgTable("policy_exports", {
+  id: serial("id").primaryKey(),
+  exportName: text("export_name").notNull(),
+  company: insuranceCompanyEnum("company"),
+  month: date("month").notNull(),
+  totalAmount: real("total_amount").notNull(),
+  format: text("format").default('csv'),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, dateJoined: true });
@@ -143,6 +188,9 @@ export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({
 export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
 export const insertOvertimeRateSchema = createInsertSchema(overtimeRates).omit({ id: true, updatedAt: true });
+export const insertInsurancePolicySchema = createInsertSchema(insurancePolicies).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPolicyPaymentSchema = createInsertSchema(policyPayments).omit({ id: true, createdAt: true });
+export const insertPolicyExportSchema = createInsertSchema(policyExports).omit({ id: true, createdAt: true });
 
 // Extended schemas with custom validation
 export const userLoginSchema = z.object({
@@ -200,6 +248,14 @@ export const relations = {
         },
       },
     },
+    policyExports: {
+      one: {
+        policyExports: {
+          references: [users.id],
+          foreignKey: policyExports.createdBy,
+        },
+      },
+    },
   },
   employees: {
     payrollRecords: {
@@ -218,6 +274,14 @@ export const relations = {
         },
       },
     },
+    insurancePolicies: {
+      one: {
+        insurancePolicies: {
+          references: [employees.id],
+          foreignKey: insurancePolicies.employeeId,
+        },
+      },
+    },
   },
   recurringDeductions: {
     employee: {
@@ -233,6 +297,58 @@ export const relations = {
         users: {
           references: [users.id],
           foreignKey: recurringDeductions.createdBy,
+        },
+      },
+    },
+  },
+  insurancePolicies: {
+    employee: {
+      one: {
+        employees: {
+          references: [employees.id],
+          foreignKey: insurancePolicies.employeeId,
+        },
+      },
+    },
+    createdByUser: {
+      one: {
+        users: {
+          references: [users.id],
+          foreignKey: insurancePolicies.createdBy,
+        },
+      },
+    },
+    updatedByUser: {
+      one: {
+        users: {
+          references: [users.id],
+          foreignKey: insurancePolicies.updatedBy,
+        },
+      },
+    },
+    policyPayments: {
+      many: {
+        policyPayments: {
+          references: [insurancePolicies.id],
+          foreignKey: policyPayments.policyId,
+        },
+      },
+    },
+  },
+  policyPayments: {
+    policy: {
+      one: {
+        insurancePolicies: {
+          references: [insurancePolicies.id],
+          foreignKey: policyPayments.policyId,
+        },
+      },
+    },
+    createdByUser: {
+      one: {
+        users: {
+          references: [users.id],
+          foreignKey: policyPayments.createdBy,
         },
       },
     },
@@ -256,6 +372,12 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type OvertimeRate = typeof overtimeRates.$inferSelect;
 export type InsertOvertimeRate = z.infer<typeof insertOvertimeRateSchema>;
+export type InsurancePolicy = typeof insurancePolicies.$inferSelect;
+export type InsertInsurancePolicy = z.infer<typeof insertInsurancePolicySchema>;
+export type PolicyPayment = typeof policyPayments.$inferSelect;
+export type InsertPolicyPayment = z.infer<typeof insertPolicyPaymentSchema>;
+export type PolicyExport = typeof policyExports.$inferSelect;
+export type InsertPolicyExport = z.infer<typeof insertPolicyExportSchema>;
 export type UserLogin = z.infer<typeof userLoginSchema>;
 export type ImportEmployee = z.infer<typeof importEmployeeSchema>;
 export type BulkImportEmployee = z.infer<typeof bulkImportEmployeeSchema>;
