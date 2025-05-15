@@ -51,10 +51,10 @@ export default function Dashboard() {
           icon={<Calendar />}
           breakdown={
             isLoadingDashboard
-              ? { butters: "-", makana: "-" }
+              ? { primary: "-", secondary: "-" }
               : {
-                  butters: "Pending Approval",
-                  makana: "This Month",
+                  primary: "Pending Approval",
+                  secondary: "This Month",
                 }
           }
         />
@@ -65,10 +65,10 @@ export default function Dashboard() {
           icon={<Clock />}
           breakdown={
             isLoadingDashboard
-              ? { butters: "-", makana: "-" }
+              ? { primary: "-", secondary: "-" }
               : {
-                  butters: "Regular Hours",
-                  makana: "This Month",
+                  primary: "Regular Hours",
+                  secondary: "This Month",
                 }
           }
         />

@@ -6,8 +6,8 @@ interface SummaryCardProps {
   value: string | number;
   icon: ReactNode;
   breakdown?: {
-    butters: string | number;
-    makana: string | number;
+    primary: string | number;
+    secondary: string | number;
   };
 }
 
@@ -23,8 +23,8 @@ export function SummaryCard({ title, value, icon, breakdown }: SummaryCardProps)
         {breakdown && (
           <div className="text-sm text-neutral-500 mt-2 grid grid-cols-1 gap-1">
             <div className="flex items-center justify-between">
-              <span className="text-secondary font-medium">{breakdown.butters}</span>
-              <span className="text-primary font-medium">{breakdown.makana}</span>
+              <span className="text-secondary font-medium">{breakdown.primary}</span>
+              <span className="text-primary font-medium">{breakdown.secondary}</span>
             </div>
           </div>
         )}
