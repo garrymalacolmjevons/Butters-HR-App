@@ -778,11 +778,11 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Get export records
-  async getExportRecords(filter?: { userId?: number }) {
+  async getExportRecords(filter?: { userId?: number }): Promise<(ExportRecord & { userName: string })[]> {
     let query = db
       .select({
         ...exportRecords,
-        userName: sql`CONCAT(${users.firstName}, ' ', ${users.lastName})`
+        userName: users.fullName
       })
       .from(exportRecords)
       .leftJoin(users, eq(exportRecords.userId, users.id))
