@@ -1,11 +1,11 @@
 import { eq, and, gt, lt, desc, isNull, or, sql, count } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, employees, payrollRecords, exportRecords, emailSettings, activityLogs, overtimeRates,
+  users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
   User, InsertUser, Employee, InsertEmployee,
-  PayrollRecord, InsertPayrollRecord, ExportRecord, InsertExportRecord, 
-  EmailSettings, InsertEmailSettings, ActivityLog, InsertActivityLog,
-  OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
+  PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
+  ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
+  ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -406,5 +406,80 @@ export class DatabaseStorage implements IStorage {
       employees,
       payrollRecords: payrollRecordsResult
     };
+  }
+
+  // Recurring Deductions methods
+  async getRecurringDeductions(filter?: { 
+    employeeId?: number;
+    deductionName?: string;
+  }): Promise<(RecurringDeduction & { employeeName: string })[]> {
+    const query = db.select({
+      ...recurringDeductions,
+      employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`
+    })
+    .from(recurringDeductions)
+    .leftJoin(employees, eq(recurringDeductions.employeeId, employees.id))
+    .orderBy(desc(recurringDeductions.createdAt));
+    
+    // Apply filters
+    if (filter) {
+      const conditions = [];
+      
+      if (filter.employeeId) {
+        conditions.push(eq(recurringDeductions.employeeId, filter.employeeId));
+      }
+      
+      if (filter.deductionName) {
+        conditions.push(eq(recurringDeductions.deductionName, filter.deductionName));
+      }
+      
+      if (conditions.length > 0) {
+        return await query.where(and(...conditions));
+      }
+    }
+    
+    return await query;
+  }
+
+  async getRecurringDeduction(id: number): Promise<(RecurringDeduction & { employeeName: string }) | undefined> {
+    const [result] = await db.select({
+      ...recurringDeductions,
+      employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`
+    })
+    .from(recurringDeductions)
+    .leftJoin(employees, eq(recurringDeductions.employeeId, employees.id))
+    .where(eq(recurringDeductions.id, id));
+    
+    return result;
+  }
+
+  async createRecurringDeduction(deduction: InsertRecurringDeduction): Promise<RecurringDeduction> {
+    const [result] = await db
+      .insert(recurringDeductions)
+      .values({
+        ...deduction,
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return result;
+  }
+
+  async updateRecurringDeduction(id: number, deduction: Partial<InsertRecurringDeduction>): Promise<RecurringDeduction | undefined> {
+    const [result] = await db
+      .update(recurringDeductions)
+      .set(deduction)
+      .where(eq(recurringDeductions.id, id))
+      .returning();
+    
+    return result;
+  }
+
+  async deleteRecurringDeduction(id: number): Promise<boolean> {
+    const result = await db
+      .delete(recurringDeductions)
+      .where(eq(recurringDeductions.id, id));
+    
+    return result.rowCount > 0;
   }
 }

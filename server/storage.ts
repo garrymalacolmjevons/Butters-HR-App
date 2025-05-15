@@ -1,8 +1,8 @@
 import { 
   User, InsertUser, Employee, InsertEmployee,
-  PayrollRecord, InsertPayrollRecord, ExportRecord, InsertExportRecord,
-  EmailSettings, InsertEmailSettings, ActivityLog, InsertActivityLog,
-  OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
+  PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
+  ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
+  ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
 } from "@shared/schema";
 
 // Storage interface
@@ -35,6 +35,16 @@ export interface IStorage {
   createPayrollRecord(payrollRecord: InsertPayrollRecord): Promise<PayrollRecord>;
   updatePayrollRecord(id: number, payrollRecord: Partial<InsertPayrollRecord>): Promise<PayrollRecord | undefined>;
   deletePayrollRecord(id: number): Promise<boolean>;
+  
+  // Recurring Deductions
+  getRecurringDeductions(filter?: { 
+    employeeId?: number;
+    deductionName?: string;
+  }): Promise<(RecurringDeduction & { employeeName: string })[]>;
+  getRecurringDeduction(id: number): Promise<(RecurringDeduction & { employeeName: string }) | undefined>;
+  createRecurringDeduction(deduction: InsertRecurringDeduction): Promise<RecurringDeduction>;
+  updateRecurringDeduction(id: number, deduction: Partial<InsertRecurringDeduction>): Promise<RecurringDeduction | undefined>;
+  deleteRecurringDeduction(id: number): Promise<boolean>;
   
   // Email Settings
   getEmailSettings(): Promise<EmailSettings | undefined>;
