@@ -211,7 +211,7 @@ export default function Allowances() {
             </div>
             <p className="text-3xl font-bold">{formatCurrency(totalAllowances)}</p>
             <div className="text-sm text-neutral-500 mt-2">
-              <span className="text-secondary">Butters: {formatCurrency(totalButtersAllowances)}</span> | <span className="text-primary">Makana: {formatCurrency(totalMakanaAllowances)}</span>
+              <span className="text-secondary">Total: {formatCurrency(totalButtersAllowances)}</span>
             </div>
           </CardContent>
         </Card>

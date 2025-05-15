@@ -64,8 +64,7 @@ export function LeaveSummary({ annual, sick, unpaid, pending, isLoading }: Leave
           <div className="flex items-center justify-between">
             <p className="text-3xl font-bold">{unpaid.total}</p>
             <div className="flex flex-col text-sm">
-              <span className="text-secondary">Butters: {unpaid.butters}</span>
-              <span className="text-primary">Makana: {unpaid.makana}</span>
+              <span className="text-secondary">Total: {unpaid.butters}</span>
             </div>
           </div>
         </CardContent>
@@ -77,8 +76,7 @@ export function LeaveSummary({ annual, sick, unpaid, pending, isLoading }: Leave
           <div className="flex items-center justify-between">
             <p className="text-3xl font-bold">{pending.total}</p>
             <div className="flex flex-col text-sm">
-              <span className="text-secondary">Butters: {pending.butters}</span>
-              <span className="text-primary">Makana: {pending.makana}</span>
+              <span className="text-secondary">Total: {pending.butters}</span>
             </div>
           </div>
         </CardContent>
