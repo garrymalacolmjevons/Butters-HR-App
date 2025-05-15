@@ -1745,8 +1745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const records = parse(csvData, {
         columns: true,
         skip_empty_lines: true,
-        trim: true,
-        cast: true
+        trim: true
       });
       
       console.log("Parsed policy records count:", records.length);
@@ -1779,8 +1778,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Extract employee code, could be numeric or string format
         const employeeCode = getField(record, ['Employee', 'employee', 'EmployeeCode', 'employeeCode', 'employee_code', 'code', 'ID']);
         
-        // Extract company name
-        const company = getField(record, ['Company', 'company', 'InsuranceCompany', 'insurance_company']);
+        // Extract company name and normalize it
+        const companyRaw = getField(record, ['Company', 'company', 'InsuranceCompany', 'insurance_company']);
+        
+        // Normalize company name (fix typos like "Old Mutul" to "Old Mutual")
+        let company = companyRaw;
+        if (companyRaw.toLowerCase().includes('mutual') || companyRaw.toLowerCase().includes('mutul')) {
+          company = 'Old Mutual';
+        } else if (companyRaw.toLowerCase().includes('sanlam')) {
+          company = 'Sanlam Sky';
+        } else if (companyRaw.toLowerCase().includes('avbob')) {
+          company = 'Avbob';
+        } else if (companyRaw.toLowerCase().includes('provident')) {
+          company = 'Provident Fund';
+        }
         
         // Extract amount/premium, handle 'R' prefix
         let amount = getField(record, ['Value', 'value', 'Amount', 'amount', 'Premium', 'premium']);
@@ -1890,8 +1901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createActivityLog({
         userId,
         action: "Import Policies",
-        details: `Imported ${created + updated} policies (${created} new, ${updated} updated, ${errors} errors)`,
-        timestamp: new Date()
+        details: `Imported ${created + updated} policies (${created} new, ${updated} updated, ${errors} errors)`
       });
       
       res.status(200).json({

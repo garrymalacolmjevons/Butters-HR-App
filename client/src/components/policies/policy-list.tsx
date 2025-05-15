@@ -517,6 +517,20 @@ export function PolicyList({ employeeId }: PolicyListProps) {
           </div>
         </div>
       )}
+
+      {/* Policy Import Modal */}
+      <PolicyImportModal 
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          setShowImportModal(false);
+          queryClient.invalidateQueries({ queryKey: ['/api/policies'] });
+          toast({
+            title: "Import Complete",
+            description: "Policies have been successfully imported",
+          });
+        }}
+      />
     </div>
   );
 }
