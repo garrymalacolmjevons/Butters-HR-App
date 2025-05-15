@@ -27,64 +27,215 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { EarningsTable } from "@/components/earnings/earnings-table";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+interface EarningFormData {
+  employeeId: number | null;
+  date: string | null;
+  amount: number | null;
+  recordType: string;
+  hours?: number | null;
+  rate?: number | null;
+  description?: string | null;
+  notes?: string | null;
+  approved: boolean;
+}
 
 export default function EarningsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overtime");
   const [showEarningTypeDialog, setShowEarningTypeDialog] = useState(false);
   const [showEarningForm, setShowEarningForm] = useState(false);
   const [currentEarningType, setCurrentEarningType] = useState<string | null>(null);
   const [date, setDate] = useState<Date | undefined>(new Date());
+  
+  // Form state
+  const [formData, setFormData] = useState<EarningFormData>({
+    employeeId: null,
+    date: date ? format(date, "yyyy-MM-dd") : null,
+    amount: null,
+    recordType: "Overtime",
+    hours: null,
+    rate: null,
+    description: null,
+    notes: null,
+    approved: false
+  });
 
   // Fetch employees
   const { data: employees = [] } = useQuery({
     queryKey: ['/api/employees'],
   });
 
+  // Fetch overtime rates
+  const { data: overtimeRates = [] } = useQuery({
+    queryKey: ['/api/overtime-rates'],
+  });
+
+  // Create earnings mutation
+  const createEarning = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/payroll-records", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/payroll-records'] });
+      toast({
+        title: "Success",
+        description: "Earning record created successfully",
+        variant: "default",
+      });
+      resetForm();
+    },
+    onError: (error) => {
+      console.error("Error creating earning:", error);
+      toast({
+        title: "Error",
+        description: `Failed to create earning: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
   const earningTypes = [
     {
       id: "overtime",
       title: "Overtime",
+      recordType: "Overtime",
       description: "Record overtime hours worked by employees"
     },
     {
       id: "commission",
       title: "Commission",
+      recordType: "Commission",
       description: "Record sales commissions and bonuses"
     },
     {
       id: "special-allowance",
-      title: "Special Allowance",
+      title: "Special Shift",
+      recordType: "Special Shift",
       description: "Record special payments or benefits"
     },
     {
       id: "escort-allowance",
       title: "Escort Allowance",
+      recordType: "Escort Allowance",
       description: "Record escort duty payments for security personnel"
     }
   ];
 
-  const handleSelectEarningType = (earningType: string) => {
+  const resetForm = () => {
+    setFormData({
+      employeeId: null,
+      date: new Date() ? format(new Date(), "yyyy-MM-dd") : null,
+      amount: null,
+      recordType: currentEarningType ? 
+        earningTypes.find(t => t.id === currentEarningType)?.recordType || "Overtime" 
+        : "Overtime",
+      hours: null,
+      rate: null,
+      description: null,
+      notes: null,
+      approved: false
+    });
+    setDate(new Date());
+  };
+
+  const handleSelectEarningType = (earningTypeId: string) => {
+    const earningType = earningTypes.find(t => t.id === earningTypeId);
+    if (!earningType) return;
+    
     // Set the earning type
-    setCurrentEarningType(earningType);
+    setCurrentEarningType(earningTypeId);
+    setFormData(prev => ({
+      ...prev,
+      recordType: earningType.recordType,
+    }));
+    
     // Close the type selection dialog
     setShowEarningTypeDialog(false);
     // Open the earning form dialog
     setShowEarningForm(true);
   };
 
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate);
+    if (selectedDate) {
+      setFormData(prev => ({
+        ...prev,
+        date: format(selectedDate, "yyyy-MM-dd")
+      }));
+    }
+  };
+
   const handleSaveEarning = (e: React.MouseEvent) => {
     e.preventDefault();
-    // For now, we'll just show a success message without making a real API call
-    // In a real implementation, you would submit the form data to the backend here
     
-    // Show success toast or notification (would need to implement this)
-    alert("Earning saved successfully! (This is a placeholder - no actual data was saved)");
+    // Validate form data
+    if (!formData.employeeId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select an employee",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.date) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.amount === null || formData.amount <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For development preview only - temporary
+    if (process.env.NODE_ENV === 'development') {
+      toast({
+        title: "Preview Mode",
+        description: "Earning would be saved in production. Form will be closed.",
+        variant: "default",
+      });
+      
+      // Close the form dialog
+      setShowEarningForm(false);
+      
+      // Switch to the appropriate tab
+      if (currentEarningType) {
+        setActiveTab(currentEarningType);
+      }
+      
+      return;
+    }
+
+    // Submit the data
+    createEarning.mutate(formData);
     
     // Close the form dialog
     setShowEarningForm(false);
@@ -100,6 +251,11 @@ export default function EarningsPage() {
     
     const type = earningTypes.find(t => t.id === currentEarningType);
     return type ? `Add ${type.title}` : "Add Earning";
+  };
+
+  const mapTabToRecordType = (tabId: string) => {
+    const earningType = earningTypes.find(t => t.id === tabId);
+    return earningType ? earningType.recordType : "Overtime";
   };
 
   return (
@@ -172,12 +328,15 @@ export default function EarningsPage() {
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="employee">Employee</Label>
-              <Select>
+              <Select
+                onValueChange={(value) => handleInputChange("employeeId", parseInt(value))}
+                value={formData.employeeId?.toString() || ""}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {employees.map((employee: any) => (
+                  {Array.isArray(employees) && employees.map((employee: any) => (
                     <SelectItem key={employee.id} value={employee.id.toString()}>
                       {employee.firstName} {employee.lastName} ({employee.employeeCode})
                     </SelectItem>
@@ -206,7 +365,7 @@ export default function EarningsPage() {
                     <Calendar
                       mode="single"
                       selected={date}
-                      onSelect={setDate}
+                      onSelect={handleDateSelect}
                       initialFocus
                     />
                   </PopoverContent>
@@ -221,6 +380,8 @@ export default function EarningsPage() {
                   placeholder="0.00"
                   min="0"
                   step="0.01"
+                  value={formData.amount || ""}
+                  onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
                 />
               </div>
             </div>
@@ -235,20 +396,33 @@ export default function EarningsPage() {
                     placeholder="0"
                     min="0"
                     step="0.5"
+                    value={formData.hours || ""}
+                    onChange={(e) => handleInputChange("hours", parseFloat(e.target.value) || 0)}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="rate">Rate</Label>
-                  <Select>
+                  <Label htmlFor="rate">Rate Type</Label>
+                  <Select
+                    onValueChange={(value) => handleInputChange("rate", parseFloat(value))}
+                    value={formData.rate?.toString() || ""}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Rate" />
+                      <SelectValue placeholder="Select Rate Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="weekday">Weekday (R400 × 1.5)</SelectItem>
-                      <SelectItem value="saturday">Saturday (R400 × 2.0)</SelectItem>
-                      <SelectItem value="sunday">Sunday (R400 × 2.0)</SelectItem>
-                      <SelectItem value="public-holiday">Public Holiday (R400 × 3.0)</SelectItem>
+                      {Array.isArray(overtimeRates) && overtimeRates.map((rate: any) => (
+                        <SelectItem key={rate.id} value={rate.rate.toString()}>
+                          {rate.overtimeType} (×{rate.rate})
+                        </SelectItem>
+                      ))}
+                      {(!overtimeRates || overtimeRates.length === 0) && (
+                        <>
+                          <SelectItem value="1.5">Weekday (×1.5)</SelectItem>
+                          <SelectItem value="2.0">Saturday/Sunday (×2.0)</SelectItem>
+                          <SelectItem value="3.0">Public Holiday (×3.0)</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -258,14 +432,17 @@ export default function EarningsPage() {
             {currentEarningType === 'commission' && (
               <div className="space-y-2">
                 <Label htmlFor="commissionType">Commission Type</Label>
-                <Select>
+                <Select
+                  onValueChange={(value) => handleInputChange("description", value)}
+                  value={formData.description || ""}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select Commission Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sales">Sales Commission</SelectItem>
-                    <SelectItem value="bonus">Performance Bonus</SelectItem>
-                    <SelectItem value="other">Other Commission</SelectItem>
+                    <SelectItem value="Sales Commission">Sales Commission</SelectItem>
+                    <SelectItem value="Performance Bonus">Performance Bonus</SelectItem>
+                    <SelectItem value="Other Commission">Other Commission</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -277,6 +454,8 @@ export default function EarningsPage() {
                 id="description"
                 placeholder="Enter a description for this earning"
                 rows={3}
+                value={formData.description || ""}
+                onChange={(e) => handleInputChange("description", e.target.value)}
               />
             </div>
             
@@ -286,12 +465,18 @@ export default function EarningsPage() {
                 id="notes"
                 placeholder="Enter any additional notes about this earning"
                 rows={2}
+                value={formData.notes || ""}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
               />
             </div>
             
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-2">
-                <Switch id="approved" />
+                <Switch 
+                  id="approved" 
+                  checked={formData.approved}
+                  onCheckedChange={(checked) => handleInputChange("approved", checked)}
+                />
                 <Label htmlFor="approved">Approved?</Label>
               </div>
             </div>
@@ -301,8 +486,11 @@ export default function EarningsPage() {
             <Button variant="outline" onClick={() => setShowEarningForm(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEarning}>
-              Save Earning
+            <Button 
+              onClick={handleSaveEarning} 
+              disabled={createEarning.isPending}
+            >
+              {createEarning.isPending ? "Saving..." : "Save Earning"}
             </Button>
           </div>
         </DialogContent>
@@ -325,35 +513,19 @@ export default function EarningsPage() {
         </TabsList>
 
         <TabsContent value="overtime" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <p className="text-center py-8 text-gray-500">
-              Overtime form will be implemented here. This will allow you to record and track overtime hours worked by employees.
-            </p>
-          </div>
+          <EarningsTable recordType="Overtime" />
         </TabsContent>
 
         <TabsContent value="commission" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <p className="text-center py-8 text-gray-500">
-              Commission form will be implemented here. This will allow you to record sales commissions and bonuses earned by employees.
-            </p>
-          </div>
+          <EarningsTable recordType="Commission" />
         </TabsContent>
 
         <TabsContent value="special-allowance" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <p className="text-center py-8 text-gray-500">
-              Special allowance form will be implemented here. This will allow you to record special payments or benefits given to employees.
-            </p>
-          </div>
+          <EarningsTable recordType="Special Shift" />
         </TabsContent>
 
         <TabsContent value="escort-allowance" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <p className="text-center py-8 text-gray-500">
-              Escort allowance form will be implemented here. This will allow you to record escort duty payments for security personnel.
-            </p>
-          </div>
+          <EarningsTable recordType="Escort Allowance" />
         </TabsContent>
       </Tabs>
     </div>
