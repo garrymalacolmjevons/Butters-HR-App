@@ -98,10 +98,16 @@ export function PolicyForm({ policy, onSuccess, onCancel }: PolicyFormProps) {
       
       if (policy) {
         // Update existing policy
-        response = await apiRequest(`/api/policies/${policy.id}`, {
+        response = await fetch(`/api/policies/${policy.id}`, {
           method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
+          credentials: "include"
         });
+        
+        if (!response.ok) {
+          throw new Error(`Error updating policy: ${response.status}`);
+        }
         
         toast({
           title: "Success",
@@ -109,10 +115,16 @@ export function PolicyForm({ policy, onSuccess, onCancel }: PolicyFormProps) {
         });
       } else {
         // Create new policy
-        response = await apiRequest("/api/policies", {
+        response = await fetch("/api/policies", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
+          credentials: "include"
         });
+        
+        if (!response.ok) {
+          throw new Error(`Error creating policy: ${response.status}`);
+        }
         
         toast({
           title: "Success",

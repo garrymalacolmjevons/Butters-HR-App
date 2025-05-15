@@ -173,7 +173,15 @@ export function PolicyList({ employeeId }: PolicyListProps) {
         url += `?${params.toString()}`;
       }
       
-      return apiRequest(url);
+      const response = await fetch(url, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching policies: ${response.status}`);
+      }
+      
+      return response.json();
     }
   });
 
@@ -194,9 +202,14 @@ export function PolicyList({ employeeId }: PolicyListProps) {
 
   const handleDelete = async (id: number) => {
     try {
-      await apiRequest(`/api/policies/${id}`, {
+      const response = await fetch(`/api/policies/${id}`, {
         method: "DELETE",
+        credentials: "include"
       });
+      
+      if (!response.ok) {
+        throw new Error(`Error deleting policy: ${response.status}`);
+      }
       
       queryClient.invalidateQueries({ queryKey: ['/api/policies'] });
       
