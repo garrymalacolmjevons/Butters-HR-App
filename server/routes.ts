@@ -13,6 +13,7 @@ import {
   insertEmployeeSchema, 
   bulkImportEmployeeSchema,
   insertPayrollRecordSchema,
+  insertRecurringDeductionSchema,
   insertExportRecordSchema,
   insertEmailSettingsSchema,
   insertOvertimeRateSchema
@@ -510,6 +511,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         action: "Delete Payroll Record",
         details: `Deleted ${record.recordType} record ID ${id}`
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Recurring Deductions routes
+  app.get("/api/recurring-deductions", isAuthenticated, async (req, res, next) => {
+    try {
+      const { employeeId, deductionName } = req.query;
+      
+      const filter: any = {};
+      if (employeeId) filter.employeeId = parseInt(employeeId as string);
+      if (deductionName) filter.deductionName = deductionName as string;
+      
+      const deductions = await storage.getRecurringDeductions(filter);
+      res.json(deductions);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/recurring-deductions/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid deduction ID" });
+      }
+      
+      const deduction = await storage.getRecurringDeduction(id);
+      if (!deduction) {
+        return res.status(404).json({ error: "Recurring deduction not found" });
+      }
+      
+      res.json(deduction);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/recurring-deductions", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const data = insertRecurringDeductionSchema.parse({
+        ...req.body,
+        createdBy: userId
+      });
+      
+      const deduction = await storage.createRecurringDeduction(data);
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Create Recurring Deduction",
+        details: `Created recurring deduction for employee ID ${deduction.employeeId}`
+      });
+      
+      res.status(201).json(deduction);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.patch("/api/recurring-deductions/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid deduction ID" });
+      }
+      
+      const data = insertRecurringDeductionSchema.partial().parse(req.body);
+      const deduction = await storage.updateRecurringDeduction(id, data);
+      
+      if (!deduction) {
+        return res.status(404).json({ error: "Recurring deduction not found" });
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Recurring Deduction",
+        details: `Updated recurring deduction ID ${deduction.id}`
+      });
+      
+      res.json(deduction);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+
+  app.delete("/api/recurring-deductions/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid deduction ID" });
+      }
+      
+      // Get the deduction first for the log
+      const deduction = await storage.getRecurringDeduction(id);
+      if (!deduction) {
+        return res.status(404).json({ error: "Recurring deduction not found" });
+      }
+      
+      const result = await storage.deleteRecurringDeduction(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Recurring deduction not found or could not be deleted" });
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Delete Recurring Deduction",
+        details: `Deleted recurring deduction ID ${id}`
       });
       
       res.json({ success: true });
