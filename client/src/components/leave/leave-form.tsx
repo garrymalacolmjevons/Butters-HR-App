@@ -58,6 +58,7 @@ export function LeaveForm({
 }: LeaveFormProps) {
   const [selectedStartDate, setSelectedStartDate] = useState<string>("");
   const [selectedEndDate, setSelectedEndDate] = useState<string>("");
+  const [selectedRecordDate, setSelectedRecordDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [capturedImage, setCapturedImage] = useState<string | null>(defaultValues?.documentImage || null);
   const [showWebcam, setShowWebcam] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -512,7 +513,11 @@ export function LeaveForm({
                       <Input
                         type="date"
                         {...field}
-                        defaultValue={new Date().toISOString().split('T')[0]}
+                        value={selectedRecordDate || ""}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          setSelectedRecordDate(e.target.value);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
