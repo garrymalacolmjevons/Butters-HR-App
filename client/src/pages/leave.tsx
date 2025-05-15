@@ -189,11 +189,21 @@ export default function Leave() {
     }
   };
   
-  const handleFormSubmit = (values: InsertPayrollRecord) => {
+  const handleFormSubmit = (values: any) => {
+    // Convert any date objects to strings for consistent API handling
+    const formattedValues = {
+      ...values,
+      date: values.date ? (typeof values.date === 'string' ? values.date : values.date.toISOString().split('T')[0]) : undefined,
+      startDate: values.startDate ? (typeof values.startDate === 'string' ? values.startDate : values.startDate.toISOString().split('T')[0]) : undefined,
+      endDate: values.endDate ? (typeof values.endDate === 'string' ? values.endDate : values.endDate.toISOString().split('T')[0]) : undefined,
+    };
+    
+    console.log("Form submission with formatted values:", formattedValues);
+    
     if (formMode === "create") {
-      createLeaveMutation.mutate(values);
+      createLeaveMutation.mutate(formattedValues);
     } else if (selectedLeave) {
-      updateLeaveMutation.mutate({ id: selectedLeave.id, data: values });
+      updateLeaveMutation.mutate({ id: selectedLeave.id, data: formattedValues });
     }
   };
   
@@ -307,7 +317,13 @@ export default function Leave() {
         isOpen={isLeaveFormOpen}
         onClose={() => setIsLeaveFormOpen(false)}
         onSubmit={handleFormSubmit}
-        defaultValues={selectedLeave || undefined}
+        defaultValues={selectedLeave ? {
+          ...selectedLeave,
+          // Set values directly as strings since they're already in string format from the API
+          date: selectedLeave.date || '',
+          startDate: selectedLeave.startDate || '',
+          endDate: selectedLeave.endDate || '',
+        } : undefined}
         isSubmitting={createLeaveMutation.isPending || updateLeaveMutation.isPending}
         title={formMode === "create" ? "Add Leave Record" : "Edit Leave Record"}
       />

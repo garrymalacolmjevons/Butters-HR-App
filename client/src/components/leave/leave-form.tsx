@@ -495,7 +495,7 @@ export function LeaveForm({
                     <FormControl>
                       <RadioGroup
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || "Pending"} 
                         className="flex space-x-4"
                       >
                         <div className="flex items-center space-x-2">
