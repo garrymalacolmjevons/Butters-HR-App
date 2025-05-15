@@ -13,6 +13,7 @@ import Allowances from "@/pages/allowances";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
 import ImportPage from "@/pages/import";
+import StaffPage from "@/pages/staff";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -49,6 +50,13 @@ function Router() {
         <ProtectedRoute component={() => (
           <Layout>
             <Dashboard />
+          </Layout>
+        )} />
+      </Route>
+      <Route path="/staff">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <StaffPage />
           </Layout>
         )} />
       </Route>
