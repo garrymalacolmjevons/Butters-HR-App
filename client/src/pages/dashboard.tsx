@@ -24,7 +24,10 @@ export default function Dashboard() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <img src="/logo.jpg" alt="Hi-Tec Security Logo" className="h-10 w-auto" />
+        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Summary Cards */}
@@ -34,10 +37,10 @@ export default function Dashboard() {
           icon={<Users />}
           breakdown={
             isLoadingDashboard
-              ? { butters: "-", makana: "-" }
+              ? { hitec: "-", staff: "-" }
               : {
-                  butters: "Hi-Tec Security",
-                  makana: "Staff",
+                  hitec: "Hi-Tec Security",
+                  staff: "Staff",
                 }
           }
         />
