@@ -101,9 +101,19 @@ export default function Sidebar() {
       expanded ? "w-56" : "w-16"
     )}>
       <div className="p-3 flex justify-between items-center">
-        {expanded && (
-          <div className="text-lg font-semibold ml-2 text-primary">Butters HR</div>
-        )}
+        <div className="flex items-center">
+          <img 
+            src="/logo.jpg" 
+            alt="Hi-Tec Security Logo" 
+            className={cn(
+              "transition-all duration-300",
+              expanded ? "h-10 w-auto" : "h-8 w-auto"
+            )}
+          />
+          {expanded && (
+            <div className="text-lg font-semibold ml-2 text-primary">Hi-Tec Security</div>
+          )}
+        </div>
         <Button 
           variant="ghost" 
           size="icon" 
