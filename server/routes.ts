@@ -290,52 +290,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Parsed records count:", records.length);
       if (records.length > 0) {
         console.log("First record keys:", Object.keys(records[0]));
+        console.log("First record data:", JSON.stringify(records[0], null, 2));
       }
       
       // Transform the records to match our schema
       // Specifically for the "Butts IMport.csv" format
       const transformedRecords = records.map((record: any) => {
-        // Direct field mapping for Butts Import.csv format
+        // Extract values from record (using any field name format in the CSV)
+        const getField = (record: any, possibleNames: string[]): string => {
+          for (const name of possibleNames) {
+            for (const key of Object.keys(record)) {
+              if (key.toLowerCase() === name.toLowerCase()) {
+                return record[key] || '';
+              }
+            }
+          }
+          return '';
+        };
+        
+        // Map specifically for Butts IMport.csv format first
+        const employeeCode = record.employeeCode || '';
+        const firstName = record.firstName || '';
+        const lastName = record.lastName || '';
+        const position = record.position || '';
+        const department = record.department || 'Security';
+        const company = record.company || 'Butters';
+        
+        // If direct mapping didn't work, try with various field name options
         let data = {
-          employeeCode: record.employeeCode || '',
-          firstName: record.firstName || '',
-          lastName: record.lastName || '',
-          department: record.department || 'Security',
-          position: record.position || '',
-          company: record.company || 'Butters',
+          employeeCode: employeeCode || getField(record, ['code', 'employee code', 'employeecode', 'employee_code', 'employeeid']),
+          firstName: firstName || getField(record, ['first name', 'first_name', 'fname', 'name', 'firstname']),
+          lastName: lastName || getField(record, ['last name', 'last_name', 'lname', 'surname', 'lastname']),
+          department: department || getField(record, ['dept', 'division']) || 'Security',
+          position: position || getField(record, ['title', 'job title', 'job_title', 'jobtitle', 'role']),
+          company: company || getField(record, ['organization', 'org']) || 'Butters',
           status: 'Active'
         };
         
-        // If our direct mapping doesn't work, try to find fields using case-insensitive comparison
+        // Log if we're missing critical data for the first few records
         if (!data.employeeCode || !data.firstName || !data.lastName || !data.position) {
-          const getField = (possibleNames: string[]) => {
-            for (const name of possibleNames) {
-              for (const key of Object.keys(record)) {
-                if (key.toLowerCase() === name.toLowerCase()) {
-                  return record[key];
-                }
-              }
-            }
-            return '';
-          };
-          
-          // For employee code field specifically check more options
-          if (!data.employeeCode) {
-            data.employeeCode = getField(['code', 'id', 'employee code', 'employee_code', 'employeeid']);
-          }
-          
-          // Try to find the name fields with various naming conventions
-          if (!data.firstName) {
-            data.firstName = getField(['first name', 'first_name', 'fname', 'name', 'firstname']);
-          }
-          
-          if (!data.lastName) {
-            data.lastName = getField(['last name', 'last_name', 'lname', 'surname', 'lastname']);
-          }
-          
-          if (!data.position) {
-            data.position = getField(['title', 'job title', 'job_title', 'jobtitle', 'role']);
-          }
+          console.log("Missing critical data for record:", record);
         }
         
         return data;
