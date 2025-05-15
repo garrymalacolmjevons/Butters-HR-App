@@ -115,9 +115,6 @@ export function AuthForm() {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="flex justify-center text-sm text-muted-foreground">
-        <p>Demo credentials: admin / admin123</p>
-      </CardFooter>
     </Card>
   );
 }
