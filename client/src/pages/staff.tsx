@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Tab } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/common/page-header";
 import { EmployeeWorkflow } from "@/components/employees/employee-workflow";
 import { TerminationForm } from "@/components/termination/termination-form";
@@ -33,18 +32,18 @@ export default function StaffPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 w-full">
-          <Tab value="leave" className="flex items-center justify-center">
+          <TabsTrigger value="leave" className="flex items-center justify-center">
             <CalendarDaysIcon className="w-4 h-4 mr-2" />
             Leave
-          </Tab>
-          <Tab value="termination" className="flex items-center justify-center">
+          </TabsTrigger>
+          <TabsTrigger value="termination" className="flex items-center justify-center">
             <UserMinusIcon className="w-4 h-4 mr-2" />
             Termination
-          </Tab>
-          <Tab value="bank-account" className="flex items-center justify-center">
+          </TabsTrigger>
+          <TabsTrigger value="bank-account" className="flex items-center justify-center">
             <BanknotesIcon className="w-4 h-4 mr-2" />
             Bank Account
-          </Tab>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="leave" className="mt-6">

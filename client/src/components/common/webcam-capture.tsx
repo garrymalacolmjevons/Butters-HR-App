@@ -106,4 +106,4 @@ const WebcamCapture = ({ onCapture, width = 600, height = 400 }: WebcamCapturePr
   );
 };
 
-export default WebcamCapture;
+export { WebcamCapture };
