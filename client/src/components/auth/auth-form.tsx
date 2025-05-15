@@ -58,9 +58,16 @@ export function AuthForm() {
   };
 
   return (
-    <Card className="w-[400px]">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center text-primary">Hi-Tec Security HR Portal</CardTitle>
+    <Card className="w-[400px] border-2 border-amber-400/20 shadow-lg">
+      <CardHeader className="text-center">
+        <div className="flex justify-center mb-4">
+          <img 
+            src="/logo.jpg" 
+            alt="Hi-Tec Security Logo" 
+            className="h-24 w-auto"
+          />
+        </div>
+        <CardTitle className="text-2xl text-center text-primary">HR Portal</CardTitle>
         <CardDescription className="text-center">Login to access the HR management system</CardDescription>
       </CardHeader>
       <CardContent>
@@ -98,7 +105,11 @@ export function AuthForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-amber-500 hover:bg-amber-600 text-black font-medium" 
+              disabled={isLoading}
+            >
               {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
