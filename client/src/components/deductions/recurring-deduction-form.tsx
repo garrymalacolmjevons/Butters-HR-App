@@ -181,8 +181,12 @@ export function RecurringDeductionForm({
                     <FormControl>
                       <Input 
                         type="date" 
-                        {...field} 
-                        value={typeof field.value === 'string' ? field.value : field.value?.toISOString().split('T')[0]}
+                        {...field}
+                        value={typeof field.value === 'string' 
+                          ? field.value 
+                          : field.value instanceof Date 
+                            ? field.value.toISOString().split('T')[0]
+                            : ""}
                       />
                     </FormControl>
                     <FormMessage />

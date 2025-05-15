@@ -89,6 +89,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private employees: Map<number, Employee>;
   private payrollRecords: Map<number, PayrollRecord>;
+  private recurringDeductions: Map<number, RecurringDeduction>;
   private emailSettings: Map<number, EmailSettings>;
   private exportRecords: Map<number, ExportRecord>;
   private activityLogs: Map<number, ActivityLog>;
@@ -97,6 +98,7 @@ export class MemStorage implements IStorage {
   private userId: number;
   private employeeId: number;
   private payrollRecordId: number;
+  private recurringDeductionId: number;
   private emailSettingsId: number;
   private exportId: number;
   private activityLogId: number;
@@ -106,6 +108,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.employees = new Map();
     this.payrollRecords = new Map();
+    this.recurringDeductions = new Map();
     this.emailSettings = new Map();
     this.exportRecords = new Map();
     this.activityLogs = new Map();
@@ -114,6 +117,7 @@ export class MemStorage implements IStorage {
     this.userId = 1;
     this.employeeId = 1;
     this.payrollRecordId = 1;
+    this.recurringDeductionId = 1;
     this.emailSettingsId = 1;
     this.exportId = 1;
     this.activityLogId = 1;
@@ -563,6 +567,82 @@ export class MemStorage implements IStorage {
       employees,
       payrollRecords
     };
+  }
+
+  // Recurring Deductions Methods
+  async getRecurringDeductions(filter?: { 
+    employeeId?: number;
+    deductionName?: string;
+  }): Promise<(RecurringDeduction & { employeeName: string })[]> {
+    let deductions = Array.from(this.recurringDeductions.values());
+    
+    // Apply filters
+    if (filter) {
+      if (filter.employeeId) {
+        deductions = deductions.filter(d => d.employeeId === filter.employeeId);
+      }
+      
+      if (filter.deductionName) {
+        deductions = deductions.filter(d => d.deductionName === filter.deductionName);
+      }
+    }
+    
+    // Add employee names
+    return deductions.map(deduction => {
+      const employee = this.employees.get(deduction.employeeId);
+      return {
+        ...deduction,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
+      };
+    });
+  }
+
+  async getRecurringDeduction(id: number): Promise<(RecurringDeduction & { employeeName: string }) | undefined> {
+    const deduction = this.recurringDeductions.get(id);
+    
+    if (!deduction) {
+      return undefined;
+    }
+    
+    const employee = this.employees.get(deduction.employeeId);
+    return {
+      ...deduction,
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
+    };
+  }
+
+  async createRecurringDeduction(deduction: InsertRecurringDeduction): Promise<RecurringDeduction> {
+    const id = this.recurringDeductionId++;
+    
+    const newDeduction: RecurringDeduction = {
+      ...deduction,
+      id,
+      createdAt: new Date(),
+      referenceNumber: `RD${id.toString().padStart(6, '0')}`
+    };
+    
+    this.recurringDeductions.set(id, newDeduction);
+    return newDeduction;
+  }
+
+  async updateRecurringDeduction(id: number, deduction: Partial<InsertRecurringDeduction>): Promise<RecurringDeduction | undefined> {
+    const existingDeduction = this.recurringDeductions.get(id);
+    
+    if (!existingDeduction) {
+      return undefined;
+    }
+    
+    const updatedDeduction: RecurringDeduction = {
+      ...existingDeduction,
+      ...deduction
+    };
+    
+    this.recurringDeductions.set(id, updatedDeduction);
+    return updatedDeduction;
+  }
+
+  async deleteRecurringDeduction(id: number): Promise<boolean> {
+    return this.recurringDeductions.delete(id);
   }
 }
 
