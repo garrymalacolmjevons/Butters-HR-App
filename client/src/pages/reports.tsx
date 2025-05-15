@@ -112,7 +112,11 @@ export default function ReportsPage() {
   const downloadExport = (exportUrl: string) => {
     window.location.href = exportUrl;
   };
-
+  
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), "dd MMM yyyy, HH:mm");
+  };
 
 
   // Get export record type display name
@@ -201,10 +205,10 @@ export default function ReportsPage() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
+        <Card className="border-2 border-amber-400/20 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white">
             <CardTitle>Generate New Report</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-300">
               Export payroll data for a specific date range
             </CardDescription>
           </CardHeader>
@@ -331,7 +335,7 @@ export default function ReportsPage() {
             <Button
               onClick={() => generateReport.mutate()}
               disabled={!startDate || !endDate || generateReport.isPending}
-              className="w-full"
+              className="w-full bg-amber-500 hover:bg-amber-600 text-black"
             >
               {generateReport.isPending ? (
                 <>
@@ -348,10 +352,10 @@ export default function ReportsPage() {
           </CardFooter>
         </Card>
         
-        <Card>
-          <CardHeader>
+        <Card className="border-2 border-amber-400/20 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white">
             <CardTitle>Recent Exports</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-300">
               Download previously generated reports
             </CardDescription>
           </CardHeader>
@@ -392,12 +396,14 @@ export default function ReportsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => downloadExport(record.fileUrl)}
                             title="Download file"
+                            className="hover:bg-amber-100 hover:text-amber-900 transition-colors"
                           >
-                            <Download className="h-4 w-4" />
+                            <Download className="h-4 w-4 mr-1" />
+                            <span className="sr-only md:not-sr-only md:inline-block">Download</span>
                           </Button>
                         </TableCell>
                       </TableRow>
