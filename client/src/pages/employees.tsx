@@ -25,11 +25,23 @@ export default function Employees() {
 
   // Check if import modal should be opened based on URL query parameter
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.split("?")[1]);
-    if (searchParams.get("import") === "true") {
+    console.log("Checking for import parameter in URL:", location);
+    if (location.includes("?import=true") || location.includes("&import=true")) {
+      console.log("Found import=true parameter, opening import modal");
       setIsImportModalOpen(true);
-      // Remove the query parameter from the URL
-      setLocation("/employees", { replace: true });
+      
+      // Remove the query parameter from the URL - keep other params if present
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.delete("import");
+      
+      const newUrl = currentUrl.pathname;
+      if (currentUrl.searchParams.toString()) {
+        // If other query params exist, keep them
+        setLocation(newUrl + "?" + currentUrl.searchParams.toString(), { replace: true });
+      } else {
+        // No other query params
+        setLocation(newUrl, { replace: true });
+      }
     }
   }, [location]);
 
@@ -76,12 +88,25 @@ export default function Employees() {
       <PageHeader
         title="Employees"
         actions={
-          <Button onClick={() => setIsImportModalOpen(true)} className="flex items-center space-x-2">
-            <FolderInput className="h-4 w-4" />
-            <span>Import VIP Data</span>
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              onClick={() => {
+                // Navigate to the dedicated import page
+                setLocation("/import");
+              }} 
+              className="flex items-center space-x-2"
+            >
+              <FolderInput className="h-4 w-4" />
+              <span>Import VIP Data</span>
+            </Button>
+          </div>
         }
       />
+      
+      {/* Debug info */}
+      <div className="p-2 text-xs text-gray-500">
+        Import Modal State: {isImportModalOpen ? "Open" : "Closed"}
+      </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
         <div className="p-4 border-b border-neutral-200 bg-neutral-50 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">

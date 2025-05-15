@@ -12,6 +12,7 @@ import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
+import ImportPage from "@/pages/import";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -100,17 +101,9 @@ function Router() {
           </Layout>
         )} />
       </Route>
-      {/* Special redirect route for direct access to import */}
+      {/* Direct access route for import page */}
       <Route path="/import">
-        <ProtectedRoute component={() => {
-          window.location.href = "/employees?import=true";
-          return (
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-              <p className="ml-3">Redirecting to employee import...</p>
-            </div>
-          );
-        }} />
+        <ProtectedRoute component={ImportPage} />
       </Route>
       <Route component={NotFound} />
     </Switch>

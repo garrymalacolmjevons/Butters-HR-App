@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { parseCSV, getCsvParseOptions } from "@/lib/csv-parser";
 import { ImportEmployee } from "@shared/schema";
@@ -131,6 +131,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
   };
 
   const handleClose = () => {
+    console.log("ImportModal closing");
     setSelectedFile(null);
     setError(null);
     setParseErrors([]);
@@ -140,6 +141,16 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     setArchiveMissing(false);
     onClose();
   };
+  
+  // Debugging
+  useEffect(() => {
+    console.log("ImportModal mounted, isOpen:", isOpen);
+  }, []);
+  
+  // Monitor open state changes
+  useEffect(() => {
+    console.log("ImportModal open state changed:", isOpen);
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
