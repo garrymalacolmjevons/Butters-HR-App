@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmployeeWithFullName } from "@shared/schema";
 import { WebcamCapture } from "@/components/common/webcam-capture";
@@ -78,9 +78,9 @@ export function LeaveForm({
     defaultValues: {
       ...defaultValues,
       recordType: "Leave",
-      status: defaultValues?.status || "Pending",
       totalDays: defaultValues?.totalDays || 1,
       documentImage: defaultValues?.documentImage || null,
+      approved: defaultValues?.approved || false, // Default to not approved
     },
   });
 
@@ -488,35 +488,20 @@ export function LeaveForm({
 
               <FormField
                 control={form.control}
-                name="status"
+                name="approved"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Status</FormLabel>
+                  <FormItem className="col-span-2 flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Was this leave approved?</FormLabel>
+                      <FormDescription>
+                        Toggle to confirm whether this leave was approved by management
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={field.value || "Pending"} 
-                        className="flex space-x-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Pending" id="status-pending" />
-                          <FormLabel htmlFor="status-pending" className="font-normal">
-                            Pending
-                          </FormLabel>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Approved" id="status-approved" />
-                          <FormLabel htmlFor="status-approved" className="font-normal">
-                            Approved
-                          </FormLabel>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Rejected" id="status-rejected" />
-                          <FormLabel htmlFor="status-rejected" className="font-normal">
-                            Rejected
-                          </FormLabel>
-                        </div>
-                      </RadioGroup>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
