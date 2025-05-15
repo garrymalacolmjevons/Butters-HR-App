@@ -50,30 +50,88 @@ export class DatabaseStorage implements IStorage {
 
   // Employee methods
   async getEmployees(filter?: { department?: string; status?: string }): Promise<EmployeeWithFullName[]> {
-    let query = db.select().from(employees);
-    
-    if (filter) {
-      const conditions = [];
+    try {
+      let query = db.select().from(employees);
       
-      if (filter.department && filter.department !== 'All Departments') {
-        conditions.push(eq(employees.department, filter.department));
+      if (filter) {
+        const conditions = [];
+        
+        if (filter.department && filter.department !== 'All Departments') {
+          conditions.push(eq(employees.department, filter.department));
+        }
+        
+        if (filter.status && filter.status !== 'All Status') {
+          conditions.push(eq(employees.status, filter.status));
+        }
+        
+        if (conditions.length > 0) {
+          query = query.where(and(...conditions));
+        }
       }
       
-      if (filter.status && filter.status !== 'All Status') {
-        conditions.push(eq(employees.status, filter.status));
+      const results = await query;
+      
+      return results.map(emp => {
+        // Add the VIP code fields with defaults if they don't exist
+        return {
+          ...emp,
+          fullName: `${emp.firstName} ${emp.lastName}`,
+          vipCode: emp.vipCode || null,
+          vipCodeRequested: emp.vipCodeRequested || false,
+          vipCodeRequestDate: emp.vipCodeRequestDate || null,
+          vipCodeStatus: emp.vipCodeStatus || 'Not Requested'
+        };
+      });
+    } catch (error) {
+      // Handle case where vip_code columns don't exist yet
+      if (error.message && error.message.includes('column "vip_code" does not exist')) {
+        console.error("VIP code columns don't exist in the database yet. Using select with specific columns.");
+        
+        // Query with only the columns we know exist
+        let query = db.select({
+          id: employees.id,
+          employeeCode: employees.employeeCode,
+          firstName: employees.firstName,
+          lastName: employees.lastName,
+          department: employees.department,
+          position: employees.position,
+          email: employees.email,
+          status: employees.status,
+          dateJoined: employees.dateJoined
+        }).from(employees);
+        
+        if (filter) {
+          const conditions = [];
+          
+          if (filter.department && filter.department !== 'All Departments') {
+            conditions.push(eq(employees.department, filter.department));
+          }
+          
+          if (filter.status && filter.status !== 'All Status') {
+            conditions.push(eq(employees.status, filter.status));
+          }
+          
+          if (conditions.length > 0) {
+            query = query.where(and(...conditions));
+          }
+        }
+        
+        const results = await query;
+        
+        // Add fullName and missing VIP fields
+        return results.map(emp => ({
+          ...emp,
+          fullName: `${emp.firstName} ${emp.lastName}`,
+          vipCode: null,
+          vipCodeRequested: false,
+          vipCodeRequestDate: null,
+          vipCodeStatus: 'Not Requested'
+        }));
       }
       
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
+      // Re-throw any other errors
+      throw error;
     }
-    
-    const results = await query;
-    
-    return results.map(emp => ({
-      ...emp,
-      fullName: `${emp.firstName} ${emp.lastName}`
-    }));
   }
 
   async getEmployee(id: number): Promise<Employee | undefined> {
@@ -310,7 +368,7 @@ export class DatabaseStorage implements IStorage {
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     
     // Get sum of all earnings for the current month
-    const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance', 'Standby'];
+    const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance', 'Standby Shift'];
     const [earningsResult] = await db.select({
       total: sql<number>`sum(${payrollRecords.amount})`
     })
