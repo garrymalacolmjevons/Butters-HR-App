@@ -118,7 +118,7 @@ export function LeaveForm({
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ imageData: imageDataUrl }),
+          body: JSON.stringify({ imageData: imageDataUrl })
         });
         
         if (!response.ok) {
