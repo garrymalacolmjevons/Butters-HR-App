@@ -1,137 +1,109 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import Webcam from 'react-webcam';
-import { Button } from '@/components/ui/button';
-import { Camera, Redo, Check } from 'lucide-react';
+import { useRef, useState, useCallback, useEffect } from "react";
+import Webcam from "react-webcam";
+import { Button } from "@/components/ui/button";
+import { Camera, RefreshCw } from "lucide-react";
 
 interface WebcamCaptureProps {
-  onCapture: (imageSrc: string | null) => void;
-  initialImage?: string | null;
+  onCapture: (imageSrc: string) => void;
+  width?: number;
+  height?: number;
 }
 
-export function WebcamCapture({ onCapture, initialImage }: WebcamCaptureProps) {
-  const webcamRef = useRef<Webcam | null>(null);
-  const [imgSrc, setImgSrc] = useState<string | null>(initialImage || null);
-  const [cameraActive, setCameraActive] = useState<boolean>(true);
-  const [cameraError, setCameraError] = useState<boolean>(false);
-
-  // Handle camera initialization errors
-  const handleUserMediaError = () => {
-    setCameraError(true);
-  };
-
-  // Capture image from webcam
-  const capture = useCallback(() => {
-    const imageSrc = webcamRef.current?.getScreenshot();
-    if (imageSrc) {
-      setImgSrc(imageSrc);
-      setCameraActive(false);
-    }
-  }, [webcamRef]);
-
-  // Retake photo
-  const retake = () => {
-    setImgSrc(null);
-    setCameraActive(true);
-  };
-
-  // Confirm selection
-  const confirmCapture = useCallback(() => {
-    onCapture(imgSrc);
-  }, [imgSrc, onCapture]);
-
-  // Cancel capture
-  const cancelCapture = () => {
-    onCapture(null);
-  };
-
-  // Set camera constraints - try to use environment camera on mobile
-  const videoConstraints = {
-    width: 1280,
-    height: 720,
-    facingMode: "user"
-  };
+const WebcamCapture = ({ onCapture, width = 600, height = 400 }: WebcamCaptureProps) => {
+  const webcamRef = useRef<Webcam>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isCameraAvailable, setIsCameraAvailable] = useState(true);
 
   useEffect(() => {
-    return () => {
-      // Clean up any camera resources
-      if (webcamRef.current && webcamRef.current.stream) {
-        const tracks = webcamRef.current.stream.getTracks();
-        tracks.forEach(track => track.stop());
+    // Check if camera is available
+    const checkCamera = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setIsCameraAvailable(videoDevices.length > 0);
+      } catch (error) {
+        console.error("Error checking camera availability:", error);
+        setIsCameraAvailable(false);
       }
     };
+
+    checkCamera();
   }, []);
 
+  const capture = useCallback(() => {
+    if (webcamRef.current) {
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (imageSrc) {
+        setCapturedImage(imageSrc);
+        onCapture(imageSrc);
+      }
+    }
+  }, [webcamRef, onCapture]);
+
+  const retake = () => {
+    setCapturedImage(null);
+  };
+
+  if (!isCameraAvailable) {
+    return (
+      <div className="text-center p-4 border rounded-md bg-neutral-50">
+        <p className="text-neutral-600 mb-2">Camera not available</p>
+        <p className="text-sm text-neutral-500">Please make sure your camera is connected and you've granted permission.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center">
-      {cameraError ? (
-        <div className="w-full p-4 text-center border border-red-200 rounded bg-red-50 text-red-500">
-          <p className="mb-2 font-semibold">Camera access error</p>
-          <p className="text-sm">
-            We couldn't access your camera. Please ensure you've granted camera permissions 
-            or try a different browser. You can still upload a document instead.
-          </p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={cancelCapture}
-          >
-            Close Camera
-          </Button>
+    <div className="webcam-container flex flex-col items-center">
+      {capturedImage ? (
+        <div className="captured-image-container">
+          <img
+            src={capturedImage}
+            alt="Captured"
+            style={{ width, height, objectFit: "cover" }}
+            className="rounded-md"
+          />
+          <div className="flex justify-center mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={retake}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retake
+            </Button>
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center w-full">
-          {cameraActive ? (
-            <div className="w-full">
-              <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/jpeg"
-                videoConstraints={videoConstraints}
-                className="w-full rounded-md border border-gray-200"
-                onUserMediaError={handleUserMediaError}
-              />
-              <div className="flex justify-center mt-4">
-                <Button
-                  onClick={capture}
-                  className="flex items-center gap-2"
-                >
-                  <Camera className="h-4 w-4" />
-                  Capture Photo
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full">
-              {imgSrc && (
-                <div className="border rounded-md overflow-hidden">
-                  <img
-                    src={imgSrc}
-                    alt="Captured"
-                    className="w-full max-h-[300px] object-contain"
-                  />
-                </div>
-              )}
-              <div className="flex justify-between mt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={retake}
-                  className="flex items-center gap-2"
-                >
-                  <Redo className="h-4 w-4" />
-                  Retake
-                </Button>
-                <Button 
-                  onClick={confirmCapture}
-                  className="flex items-center gap-2"
-                >
-                  <Check className="h-4 w-4" />
-                  Use Photo
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+        <>
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            width={width}
+            height={height}
+            videoConstraints={{
+              width,
+              height,
+              facingMode: "user"
+            }}
+            className="rounded-md"
+          />
+          <div className="flex justify-center mt-4">
+            <Button
+              type="button"
+              className="flex items-center gap-2"
+              onClick={capture}
+            >
+              <Camera className="h-4 w-4" />
+              Capture Photo
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
-}
+};
+
+export default WebcamCapture;

@@ -14,6 +14,7 @@ import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
 import ImportPage from "@/pages/import";
 import StaffPage from "@/pages/staff";
+import Policies from "@/pages/policies";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -99,6 +100,13 @@ function Router() {
         <ProtectedRoute component={() => (
           <Layout>
             <Reports />
+          </Layout>
+        )} />
+      </Route>
+      <Route path="/policies">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <Policies />
           </Layout>
         )} />
       </Route>

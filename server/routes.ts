@@ -16,7 +16,10 @@ import {
   insertRecurringDeductionSchema,
   insertExportRecordSchema,
   insertEmailSettingsSchema,
-  insertOvertimeRateSchema
+  insertOvertimeRateSchema,
+  insertInsurancePolicySchema,
+  insertPolicyPaymentSchema,
+  insertPolicyExportSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -1376,6 +1379,508 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to delete user" });
       }
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Insurance Policies Routes
+  // Get all insurance policies with optional filtering
+  app.get("/api/policies", isAuthenticated, async (req, res, next) => {
+    try {
+      const filter: {
+        employeeId?: number;
+        company?: string;
+        status?: string;
+      } = {};
+      
+      if (req.query.employeeId) {
+        filter.employeeId = parseInt(req.query.employeeId as string);
+      }
+      
+      if (req.query.company) {
+        filter.company = req.query.company as string;
+      }
+      
+      if (req.query.status) {
+        filter.status = req.query.status as string;
+      }
+      
+      const policies = await storage.getInsurancePolicies(filter);
+      res.json(policies);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Get a specific insurance policy by ID
+  app.get("/api/policies/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid policy ID" });
+      }
+      
+      const policy = await storage.getInsurancePolicy(id);
+      if (!policy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      res.json(policy);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Create a new insurance policy
+  app.post("/api/policies", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Validate request body
+      const policyData = insertInsurancePolicySchema.parse({
+        ...req.body,
+        createdBy: userId,
+        updatedBy: userId
+      });
+      
+      // Save base64 document image if provided
+      if (policyData.documentImage && policyData.documentImage.startsWith('data:')) {
+        const imagePath = await saveBase64Image(policyData.documentImage, 'policy-documents');
+        policyData.documentImage = imagePath;
+      }
+      
+      // Create the policy
+      const newPolicy = await storage.createInsurancePolicy(policyData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_POLICY",
+        details: `Created insurance policy for employee #${policyData.employeeId} with ${policyData.company}`
+      });
+      
+      res.status(201).json(newPolicy);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      next(error);
+    }
+  });
+  
+  // Update an existing insurance policy
+  app.patch("/api/policies/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid policy ID" });
+      }
+      
+      const userId = (req.user as any).id;
+      
+      // Check if policy exists
+      const existingPolicy = await storage.getInsurancePolicy(id);
+      if (!existingPolicy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      // Validate update data - partial validation as this is a PATCH
+      const updateData = insertInsurancePolicySchema.partial().parse({
+        ...req.body,
+        updatedBy: userId
+      });
+      
+      // Handle document image if it's being updated
+      if (updateData.documentImage && updateData.documentImage.startsWith('data:')) {
+        // Delete old image if it exists
+        if (existingPolicy.documentImage) {
+          await deleteImage(existingPolicy.documentImage);
+        }
+        
+        // Save new image
+        const imagePath = await saveBase64Image(updateData.documentImage, 'policy-documents');
+        updateData.documentImage = imagePath;
+      }
+      
+      // Update the policy
+      const updatedPolicy = await storage.updateInsurancePolicy(id, updateData);
+      
+      if (!updatedPolicy) {
+        return res.status(500).json({ error: "Failed to update policy" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "UPDATE_POLICY",
+        details: `Updated insurance policy #${id} for ${existingPolicy.employeeName}`
+      });
+      
+      res.json(updatedPolicy);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      next(error);
+    }
+  });
+  
+  // Delete an insurance policy
+  app.delete("/api/policies/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid policy ID" });
+      }
+      
+      const userId = (req.user as any).id;
+      
+      // Check if policy exists
+      const policy = await storage.getInsurancePolicy(id);
+      if (!policy) {
+        return res.status(404).json({ error: "Policy not found" });
+      }
+      
+      // Delete document image if it exists
+      if (policy.documentImage) {
+        await deleteImage(policy.documentImage);
+      }
+      
+      // Delete the policy
+      const success = await storage.deleteInsurancePolicy(id);
+      
+      if (success) {
+        // Log activity
+        await storage.createActivityLog({
+          userId,
+          action: "DELETE_POLICY",
+          details: `Deleted insurance policy #${id} for ${policy.employeeName}`
+        });
+        
+        res.status(204).end();
+      } else {
+        res.status(500).json({ error: "Failed to delete policy" });
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Policy Payments Routes
+  // Get all policy payments with optional filtering
+  app.get("/api/policy-payments", isAuthenticated, async (req, res, next) => {
+    try {
+      const filter: {
+        policyId?: number;
+        startDate?: Date;
+        endDate?: Date;
+      } = {};
+      
+      if (req.query.policyId) {
+        filter.policyId = parseInt(req.query.policyId as string);
+      }
+      
+      if (req.query.startDate) {
+        filter.startDate = new Date(req.query.startDate as string);
+      }
+      
+      if (req.query.endDate) {
+        filter.endDate = new Date(req.query.endDate as string);
+      }
+      
+      const payments = await storage.getPolicyPayments(filter);
+      res.json(payments);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Get a specific policy payment by ID
+  app.get("/api/policy-payments/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid payment ID" });
+      }
+      
+      const payment = await storage.getPolicyPayment(id);
+      if (!payment) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+      
+      res.json(payment);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Create a new policy payment
+  app.post("/api/policy-payments", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Validate request body
+      const paymentData = insertPolicyPaymentSchema.parse({
+        ...req.body,
+        createdBy: userId
+      });
+      
+      // Create the payment
+      const newPayment = await storage.createPolicyPayment(paymentData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_POLICY_PAYMENT",
+        details: `Created payment of R${paymentData.amount} for policy #${paymentData.policyId}`
+      });
+      
+      res.status(201).json(newPayment);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      next(error);
+    }
+  });
+  
+  // Update an existing policy payment
+  app.patch("/api/policy-payments/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid payment ID" });
+      }
+      
+      const userId = (req.user as any).id;
+      
+      // Check if payment exists
+      const existingPayment = await storage.getPolicyPayment(id);
+      if (!existingPayment) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+      
+      // Validate update data - partial validation as this is a PATCH
+      const updateData = insertPolicyPaymentSchema.partial().parse(req.body);
+      
+      // Update the payment
+      const updatedPayment = await storage.updatePolicyPayment(id, updateData);
+      
+      if (!updatedPayment) {
+        return res.status(500).json({ error: "Failed to update payment" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "UPDATE_POLICY_PAYMENT",
+        details: `Updated payment #${id} for policy #${existingPayment.policyId}`
+      });
+      
+      res.json(updatedPayment);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      next(error);
+    }
+  });
+  
+  // Delete a policy payment
+  app.delete("/api/policy-payments/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid payment ID" });
+      }
+      
+      const userId = (req.user as any).id;
+      
+      // Check if payment exists
+      const payment = await storage.getPolicyPayment(id);
+      if (!payment) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+      
+      // Delete the payment
+      const success = await storage.deletePolicyPayment(id);
+      
+      if (success) {
+        // Log activity
+        await storage.createActivityLog({
+          userId,
+          action: "DELETE_POLICY_PAYMENT",
+          details: `Deleted payment #${id} for policy #${payment.policyId}`
+        });
+        
+        res.status(204).end();
+      } else {
+        res.status(500).json({ error: "Failed to delete payment" });
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Policy Export Routes
+  // Get all policy exports with optional filtering
+  app.get("/api/policy-exports", isAuthenticated, async (req, res, next) => {
+    try {
+      const filter: {
+        userId?: number;
+        company?: string;
+      } = {};
+      
+      if (req.query.userId) {
+        filter.userId = parseInt(req.query.userId as string);
+      }
+      
+      if (req.query.company) {
+        filter.company = req.query.company as string;
+      }
+      
+      const exports = await storage.getPolicyExports(filter);
+      res.json(exports);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Create a new policy export
+  app.post("/api/policy-exports", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Validate request body
+      const exportData = insertPolicyExportSchema.parse({
+        ...req.body,
+        createdBy: userId
+      });
+      
+      // Create export record
+      const newExport = await storage.createPolicyExport(exportData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_POLICY_EXPORT",
+        details: `Created policy export "${exportData.exportName}" for ${exportData.company || 'all companies'}`
+      });
+      
+      // Get the report data
+      const reportData = await storage.getPolicyReportData({
+        month: new Date(exportData.month),
+        company: exportData.company || undefined
+      });
+      
+      // Generate Excel file
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Butters Payroll System';
+      workbook.created = new Date();
+      
+      // Policies sheet
+      const policiesSheet = workbook.addWorksheet('Policies');
+      policiesSheet.columns = [
+        { header: 'Employee', key: 'employee', width: 30 },
+        { header: 'Policy Number', key: 'policyNumber', width: 20 },
+        { header: 'Company', key: 'company', width: 20 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Start Date', key: 'startDate', width: 15 },
+        { header: 'Amount', key: 'amount', width: 15 },
+        { header: 'Notes', key: 'notes', width: 30 }
+      ];
+      
+      // Add policy data
+      reportData.policies.forEach(policy => {
+        policiesSheet.addRow({
+          employee: policy.employeeName,
+          policyNumber: policy.policyNumber,
+          company: policy.company,
+          status: policy.status,
+          startDate: policy.startDate,
+          amount: policy.amount,
+          notes: policy.notes
+        });
+      });
+      
+      // Format headers
+      policiesSheet.getRow(1).font = { bold: true };
+      
+      // Payments sheet
+      const paymentsSheet = workbook.addWorksheet('Payments');
+      paymentsSheet.columns = [
+        { header: 'Employee', key: 'employee', width: 30 },
+        { header: 'Policy Number', key: 'policyNumber', width: 20 },
+        { header: 'Payment Date', key: 'paymentDate', width: 15 },
+        { header: 'Month', key: 'month', width: 15 },
+        { header: 'Amount', key: 'amount', width: 15 },
+        { header: 'Payment Method', key: 'paymentMethod', width: 20 },
+        { header: 'Notes', key: 'notes', width: 30 }
+      ];
+      
+      // Add payment data
+      reportData.payments.forEach(payment => {
+        paymentsSheet.addRow({
+          employee: payment.employeeName,
+          policyNumber: payment.policyNumber,
+          paymentDate: payment.paymentDate,
+          month: payment.month,
+          amount: payment.amount,
+          paymentMethod: payment.paymentMethod,
+          notes: payment.notes
+        });
+      });
+      
+      // Format headers
+      paymentsSheet.getRow(1).font = { bold: true };
+      
+      // Create buffer for the Excel file
+      const buffer = await workbook.xlsx.writeBuffer();
+      
+      // Convert buffer to base64 for response
+      const base64 = Buffer.from(buffer).toString('base64');
+      
+      res.json({
+        export: newExport,
+        data: base64,
+        filename: `policy-export-${newExport.id}.xlsx`
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      next(error);
+    }
+  });
+  
+  // Get policy report data for a specific month and company
+  app.get("/api/policy-reports", isAuthenticated, async (req, res, next) => {
+    try {
+      // Validate query parameters
+      if (!req.query.month) {
+        return res.status(400).json({ error: "Month parameter is required" });
+      }
+      
+      const month = new Date(req.query.month as string);
+      if (isNaN(month.getTime())) {
+        return res.status(400).json({ error: "Invalid month format" });
+      }
+      
+      const company = req.query.company as string | undefined;
+      
+      // Get report data
+      const reportData = await storage.getPolicyReportData({
+        month,
+        company
+      });
+      
+      res.json(reportData);
     } catch (error) {
       next(error);
     }

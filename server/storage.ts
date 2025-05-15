@@ -2,7 +2,9 @@ import {
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
-  ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName
+  ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
+  InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment,
+  PolicyExport, InsertPolicyExport
 } from "@shared/schema";
 
 // Storage interface
@@ -66,6 +68,41 @@ export interface IStorage {
   getActivityLogs(limit?: number): Promise<(ActivityLog & { userName: string })[]>;
   createActivityLog(activityLog: InsertActivityLog): Promise<ActivityLog>;
   
+  // Insurance Policies
+  getInsurancePolicies(filter?: {
+    employeeId?: number;
+    company?: string;
+    status?: string;
+  }): Promise<(InsurancePolicy & { employeeName: string })[]>;
+  getInsurancePolicy(id: number): Promise<(InsurancePolicy & { employeeName: string }) | undefined>;
+  createInsurancePolicy(policy: InsertInsurancePolicy): Promise<InsurancePolicy>;
+  updateInsurancePolicy(id: number, policy: Partial<InsertInsurancePolicy>): Promise<InsurancePolicy | undefined>;
+  deleteInsurancePolicy(id: number): Promise<boolean>;
+  
+  // Policy Payments
+  getPolicyPayments(filter?: {
+    policyId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<(PolicyPayment & { policyNumber: string, employeeName: string })[]>;
+  getPolicyPayment(id: number): Promise<PolicyPayment | undefined>;
+  createPolicyPayment(payment: InsertPolicyPayment): Promise<PolicyPayment>;
+  updatePolicyPayment(id: number, payment: Partial<InsertPolicyPayment>): Promise<PolicyPayment | undefined>;
+  deletePolicyPayment(id: number): Promise<boolean>;
+  
+  // Policy Exports
+  getPolicyExports(filter?: { userId?: number, company?: string }): Promise<(PolicyExport & { userName: string })[]>;
+  createPolicyExport(policyExport: InsertPolicyExport): Promise<PolicyExport>;
+  
+  // Policy Reports
+  getPolicyReportData(options: {
+    month: Date;
+    company?: string;
+  }): Promise<{
+    policies: (InsurancePolicy & { employeeName: string })[];
+    payments: (PolicyPayment & { policyNumber: string, employeeName: string })[];
+  }>;
+  
   // Dashboard data
   getDashboardData(): Promise<{
     employeeCount: number;
@@ -94,6 +131,9 @@ export class MemStorage implements IStorage {
   private exportRecords: Map<number, ExportRecord>;
   private activityLogs: Map<number, ActivityLog>;
   private overtimeRates: Map<number, OvertimeRate>;
+  private insurancePolicies: Map<number, InsurancePolicy>;
+  private policyPayments: Map<number, PolicyPayment>;
+  private policyExports: Map<number, PolicyExport>;
   
   private userId: number;
   private employeeId: number;
@@ -103,6 +143,9 @@ export class MemStorage implements IStorage {
   private exportId: number;
   private activityLogId: number;
   private overtimeRateId: number;
+  private insurancePolicyId: number;
+  private policyPaymentId: number;
+  private policyExportId: number;
   
   constructor() {
     this.users = new Map();
@@ -113,6 +156,9 @@ export class MemStorage implements IStorage {
     this.exportRecords = new Map();
     this.activityLogs = new Map();
     this.overtimeRates = new Map();
+    this.insurancePolicies = new Map();
+    this.policyPayments = new Map();
+    this.policyExports = new Map();
     
     this.userId = 1;
     this.employeeId = 1;
@@ -122,6 +168,9 @@ export class MemStorage implements IStorage {
     this.exportId = 1;
     this.activityLogId = 1;
     this.overtimeRateId = 1;
+    this.insurancePolicyId = 1;
+    this.policyPaymentId = 1;
+    this.policyExportId = 1;
     
     // Add default admin user
     this.createUser({
@@ -643,6 +692,250 @@ export class MemStorage implements IStorage {
 
   async deleteRecurringDeduction(id: number): Promise<boolean> {
     return this.recurringDeductions.delete(id);
+  }
+
+  // Insurance Policies methods
+  async getInsurancePolicies(filter?: {
+    employeeId?: number;
+    company?: string;
+    status?: string;
+  }): Promise<(InsurancePolicy & { employeeName: string })[]> {
+    let policies = Array.from(this.insurancePolicies.values());
+    
+    if (filter) {
+      if (filter.employeeId !== undefined) {
+        policies = policies.filter(p => p.employeeId === filter.employeeId);
+      }
+      
+      if (filter.company !== undefined) {
+        policies = policies.filter(p => p.company === filter.company);
+      }
+      
+      if (filter.status !== undefined) {
+        policies = policies.filter(p => p.status === filter.status);
+      }
+    }
+    
+    return policies.map(policy => {
+      const employee = this.employees.get(policy.employeeId);
+      return {
+        ...policy,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
+      };
+    }).sort((a, b) => {
+      if (a.updatedAt && b.updatedAt) {
+        return b.updatedAt.getTime() - a.updatedAt.getTime();
+      }
+      return 0;
+    });
+  }
+  
+  async getInsurancePolicy(id: number): Promise<(InsurancePolicy & { employeeName: string }) | undefined> {
+    const policy = this.insurancePolicies.get(id);
+    
+    if (!policy) {
+      return undefined;
+    }
+    
+    const employee = this.employees.get(policy.employeeId);
+    return {
+      ...policy,
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
+    };
+  }
+  
+  async createInsurancePolicy(policy: InsertInsurancePolicy): Promise<InsurancePolicy> {
+    const id = this.insurancePolicyId++;
+    
+    const newPolicy: InsurancePolicy = {
+      ...policy,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.insurancePolicies.set(id, newPolicy);
+    return newPolicy;
+  }
+  
+  async updateInsurancePolicy(id: number, policy: Partial<InsertInsurancePolicy>): Promise<InsurancePolicy | undefined> {
+    const existingPolicy = this.insurancePolicies.get(id);
+    
+    if (!existingPolicy) {
+      return undefined;
+    }
+    
+    const updatedPolicy: InsurancePolicy = {
+      ...existingPolicy,
+      ...policy,
+      updatedAt: new Date()
+    };
+    
+    this.insurancePolicies.set(id, updatedPolicy);
+    return updatedPolicy;
+  }
+  
+  async deleteInsurancePolicy(id: number): Promise<boolean> {
+    return this.insurancePolicies.delete(id);
+  }
+  
+  // Policy Payments methods
+  async getPolicyPayments(filter?: {
+    policyId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<(PolicyPayment & { policyNumber: string, employeeName: string })[]> {
+    let payments = Array.from(this.policyPayments.values());
+    
+    if (filter) {
+      if (filter.policyId !== undefined) {
+        payments = payments.filter(p => p.policyId === filter.policyId);
+      }
+      
+      if (filter.startDate !== undefined) {
+        payments = payments.filter(p => new Date(p.paymentDate) >= filter.startDate!);
+      }
+      
+      if (filter.endDate !== undefined) {
+        payments = payments.filter(p => new Date(p.paymentDate) <= filter.endDate!);
+      }
+    }
+    
+    return payments.map(payment => {
+      const policy = this.insurancePolicies.get(payment.policyId);
+      const employee = policy ? this.employees.get(policy.employeeId) : undefined;
+      return {
+        ...payment,
+        policyNumber: policy ? policy.policyNumber : 'Unknown Policy',
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee'
+      };
+    }).sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      }
+      return 0;
+    });
+  }
+  
+  async getPolicyPayment(id: number): Promise<PolicyPayment | undefined> {
+    return this.policyPayments.get(id);
+  }
+  
+  async createPolicyPayment(payment: InsertPolicyPayment): Promise<PolicyPayment> {
+    const id = this.policyPaymentId++;
+    
+    const newPayment: PolicyPayment = {
+      ...payment,
+      id,
+      createdAt: new Date()
+    };
+    
+    this.policyPayments.set(id, newPayment);
+    return newPayment;
+  }
+  
+  async updatePolicyPayment(id: number, payment: Partial<InsertPolicyPayment>): Promise<PolicyPayment | undefined> {
+    const existingPayment = this.policyPayments.get(id);
+    
+    if (!existingPayment) {
+      return undefined;
+    }
+    
+    const updatedPayment: PolicyPayment = {
+      ...existingPayment,
+      ...payment
+    };
+    
+    this.policyPayments.set(id, updatedPayment);
+    return updatedPayment;
+  }
+  
+  async deletePolicyPayment(id: number): Promise<boolean> {
+    return this.policyPayments.delete(id);
+  }
+  
+  // Policy Exports methods
+  async getPolicyExports(filter?: { userId?: number, company?: string }): Promise<(PolicyExport & { userName: string })[]> {
+    let exports = Array.from(this.policyExports.values());
+    
+    if (filter) {
+      if (filter.userId !== undefined) {
+        exports = exports.filter(e => e.createdBy === filter.userId);
+      }
+      
+      if (filter.company !== undefined) {
+        exports = exports.filter(e => e.company === filter.company);
+      }
+    }
+    
+    return exports.map(policyExport => {
+      const user = this.users.get(policyExport.createdBy);
+      return {
+        ...policyExport,
+        userName: user ? user.fullName : 'Unknown User'
+      };
+    }).sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      }
+      return 0;
+    });
+  }
+  
+  async createPolicyExport(policyExport: InsertPolicyExport): Promise<PolicyExport> {
+    const id = this.policyExportId++;
+    
+    const newExport: PolicyExport = {
+      ...policyExport,
+      id,
+      createdAt: new Date()
+    };
+    
+    this.policyExports.set(id, newExport);
+    return newExport;
+  }
+  
+  // Policy Reports
+  async getPolicyReportData(options: {
+    month: Date;
+    company?: string;
+  }): Promise<{
+    policies: (InsurancePolicy & { employeeName: string })[];
+    payments: (PolicyPayment & { policyNumber: string, employeeName: string })[];
+  }> {
+    // Get policies
+    let policiesFilter: { employeeId?: number; company?: string; status?: string } = { 
+      status: 'Active'
+    };
+    
+    if (options.company) {
+      policiesFilter.company = options.company;
+    }
+    
+    const policies = await this.getInsurancePolicies(policiesFilter);
+    
+    // Start of month and end of month dates for filtering payments
+    const startOfMonth = new Date(options.month.getFullYear(), options.month.getMonth(), 1);
+    const endOfMonth = new Date(options.month.getFullYear(), options.month.getMonth() + 1, 0);
+    
+    // Get payments for the month
+    const payments = await this.getPolicyPayments({
+      startDate: startOfMonth,
+      endDate: endOfMonth
+    });
+    
+    // Filter payments by company if needed
+    const filteredPayments = options.company
+      ? payments.filter(payment => {
+          const policy = this.insurancePolicies.get(payment.policyId);
+          return policy && policy.company === options.company;
+        })
+      : payments;
+    
+    return {
+      policies,
+      payments: filteredPayments
+    };
   }
 }
 

@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCog,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -141,6 +142,11 @@ export default function Sidebar() {
           icon={TrendingDown} 
           path="/deductions" 
           label="Deductions" 
+        />
+        <NavItem 
+          icon={Shield} 
+          path="/policies" 
+          label="Policies" 
         />
         <NavItem 
           icon={FileSpreadsheet} 

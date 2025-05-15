@@ -1,4 +1,4 @@
-import { eq, and, gt, lt, desc, isNull, or, sql, count } from "drizzle-orm";
+import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
@@ -483,5 +483,248 @@ export class DatabaseStorage implements IStorage {
       .where(eq(recurringDeductions.id, id));
     
     return result.rowCount > 0;
+  }
+
+  // Insurance Policy methods
+  async getInsurancePolicies(filter?: {
+    employeeId?: number;
+    company?: string;
+    status?: string;
+  }): Promise<(InsurancePolicy & { employeeName: string })[]> {
+    let query = db
+      .select({
+        ...insurancePolicies,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+      })
+      .from(insurancePolicies)
+      .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
+      .orderBy(desc(insurancePolicies.updatedAt));
+    
+    if (filter) {
+      if (filter.employeeId !== undefined) {
+        query = query.where(eq(insurancePolicies.employeeId, filter.employeeId));
+      }
+      
+      if (filter.company !== undefined) {
+        query = query.where(eq(insurancePolicies.company, filter.company));
+      }
+      
+      if (filter.status !== undefined) {
+        query = query.where(eq(insurancePolicies.status, filter.status));
+      }
+    }
+    
+    return await query;
+  }
+  
+  async getInsurancePolicy(id: number): Promise<(InsurancePolicy & { employeeName: string }) | undefined> {
+    const [result] = await db
+      .select({
+        ...insurancePolicies,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+      })
+      .from(insurancePolicies)
+      .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
+      .where(eq(insurancePolicies.id, id));
+    
+    return result;
+  }
+  
+  async createInsurancePolicy(policy: InsertInsurancePolicy): Promise<InsurancePolicy> {
+    const [result] = await db
+      .insert(insurancePolicies)
+      .values({
+        ...policy,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    return result;
+  }
+  
+  async updateInsurancePolicy(id: number, policy: Partial<InsertInsurancePolicy>): Promise<InsurancePolicy | undefined> {
+    const [result] = await db
+      .update(insurancePolicies)
+      .set({
+        ...policy,
+        updatedAt: new Date()
+      })
+      .where(eq(insurancePolicies.id, id))
+      .returning();
+    
+    return result;
+  }
+  
+  async deleteInsurancePolicy(id: number): Promise<boolean> {
+    const result = await db
+      .delete(insurancePolicies)
+      .where(eq(insurancePolicies.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  // Policy Payments methods
+  async getPolicyPayments(filter?: {
+    policyId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<(PolicyPayment & { policyNumber: string, employeeName: string })[]> {
+    let query = db
+      .select({
+        ...policyPayments,
+        policyNumber: insurancePolicies.policyNumber,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+      })
+      .from(policyPayments)
+      .leftJoin(insurancePolicies, eq(policyPayments.policyId, insurancePolicies.id))
+      .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
+      .orderBy(desc(policyPayments.createdAt));
+    
+    if (filter) {
+      if (filter.policyId !== undefined) {
+        query = query.where(eq(policyPayments.policyId, filter.policyId));
+      }
+      
+      if (filter.startDate !== undefined) {
+        query = query.where(gte(policyPayments.paymentDate, filter.startDate));
+      }
+      
+      if (filter.endDate !== undefined) {
+        query = query.where(lte(policyPayments.paymentDate, filter.endDate));
+      }
+    }
+    
+    return await query;
+  }
+  
+  async getPolicyPayment(id: number): Promise<PolicyPayment | undefined> {
+    const [result] = await db
+      .select()
+      .from(policyPayments)
+      .where(eq(policyPayments.id, id));
+    
+    return result;
+  }
+  
+  async createPolicyPayment(payment: InsertPolicyPayment): Promise<PolicyPayment> {
+    const [result] = await db
+      .insert(policyPayments)
+      .values({
+        ...payment,
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return result;
+  }
+  
+  async updatePolicyPayment(id: number, payment: Partial<InsertPolicyPayment>): Promise<PolicyPayment | undefined> {
+    const [result] = await db
+      .update(policyPayments)
+      .set(payment)
+      .where(eq(policyPayments.id, id))
+      .returning();
+    
+    return result;
+  }
+  
+  async deletePolicyPayment(id: number): Promise<boolean> {
+    const result = await db
+      .delete(policyPayments)
+      .where(eq(policyPayments.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  // Policy Exports methods
+  async getPolicyExports(filter?: { userId?: number, company?: string }): Promise<(PolicyExport & { userName: string })[]> {
+    let query = db
+      .select({
+        ...policyExports,
+        userName: users.fullName
+      })
+      .from(policyExports)
+      .leftJoin(users, eq(policyExports.createdBy, users.id))
+      .orderBy(desc(policyExports.createdAt));
+    
+    if (filter) {
+      if (filter.userId !== undefined) {
+        query = query.where(eq(policyExports.createdBy, filter.userId));
+      }
+      
+      if (filter.company !== undefined) {
+        query = query.where(eq(policyExports.company, filter.company));
+      }
+    }
+    
+    return await query;
+  }
+  
+  async createPolicyExport(policyExport: InsertPolicyExport): Promise<PolicyExport> {
+    const [result] = await db
+      .insert(policyExports)
+      .values({
+        ...policyExport,
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return result;
+  }
+  
+  // Policy Reports
+  async getPolicyReportData(options: {
+    month: Date;
+    company?: string;
+  }): Promise<{
+    policies: (InsurancePolicy & { employeeName: string })[];
+    payments: (PolicyPayment & { policyNumber: string, employeeName: string })[];
+  }> {
+    // Get policies
+    let policiesQuery = db
+      .select({
+        ...insurancePolicies,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+      })
+      .from(insurancePolicies)
+      .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
+      .where(eq(insurancePolicies.status, 'Active'));
+    
+    if (options.company) {
+      policiesQuery = policiesQuery.where(eq(insurancePolicies.company, options.company));
+    }
+    
+    const policies = await policiesQuery;
+    
+    // Start of month and end of month dates for filtering payments
+    const startOfMonth = new Date(options.month.getFullYear(), options.month.getMonth(), 1);
+    const endOfMonth = new Date(options.month.getFullYear(), options.month.getMonth() + 1, 0);
+    
+    // Get payments for the month
+    let paymentsQuery = db
+      .select({
+        ...policyPayments,
+        policyNumber: insurancePolicies.policyNumber,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+      })
+      .from(policyPayments)
+      .leftJoin(insurancePolicies, eq(policyPayments.policyId, insurancePolicies.id))
+      .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
+      .where(and(
+        gte(policyPayments.paymentDate, startOfMonth),
+        lte(policyPayments.paymentDate, endOfMonth)
+      ));
+    
+    if (options.company) {
+      paymentsQuery = paymentsQuery.where(eq(insurancePolicies.company, options.company));
+    }
+    
+    const payments = await paymentsQuery;
+    
+    return {
+      policies,
+      payments
+    };
   }
 }
