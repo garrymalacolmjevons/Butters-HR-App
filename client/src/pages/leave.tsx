@@ -99,10 +99,8 @@ export default function Leave() {
   
   // Create leave mutation
   const createLeaveMutation = useMutation({
-    mutationFn: async (data: InsertPayrollRecord) => {
-      const res = await apiRequest("POST", "/api/leave", data);
-      return res.json();
-    },
+    mutationFn: (data: InsertPayrollRecord) => 
+      apiRequest("/api/leave", "POST", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -123,10 +121,8 @@ export default function Leave() {
   
   // Update leave mutation
   const updateLeaveMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertPayrollRecord> }) => {
-      const res = await apiRequest("PATCH", `/api/leave/${id}`, data);
-      return res.json();
-    },
+    mutationFn: ({ id, data }: { id: number; data: Partial<InsertPayrollRecord> }) => 
+      apiRequest(`/api/leave/${id}`, "PATCH", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
