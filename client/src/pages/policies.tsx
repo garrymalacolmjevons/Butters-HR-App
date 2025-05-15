@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Plus } from "lucide-react";
-import PageHeader from "@/components/common/page-header";
+import { PageHeader } from "@/components/common/page-header";
 import { PolicyList } from "@/components/policies/policy-list";
 import { PolicyExportForm } from "@/components/policies/policy-export-form";
 import { useAuth } from "@/lib/auth";

@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { useFetchEmployees } from "@/hooks/use-employees";
-import WebcamCapture from "@/components/common/webcam-capture";
+import { WebcamCapture } from "@/components/common/webcam-capture";
 import { FileUpload } from "@/components/common/file-upload";
 import { InsurancePolicy } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
