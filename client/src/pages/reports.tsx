@@ -68,12 +68,12 @@ export default function ReportsPage() {
       const result = await apiRequest("POST", `/api/reports/generate?${params.toString()}`);
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       // Refresh export history
       queryClient.invalidateQueries({ queryKey: ['/api/export-records'] });
       
       // Trigger download
-      if (data.downloadUrl) {
+      if (data && data.downloadUrl) {
         window.location.href = data.downloadUrl;
       }
       

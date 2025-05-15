@@ -1,4 +1,4 @@
-import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count } from "drizzle-orm";
+import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,

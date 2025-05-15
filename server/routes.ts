@@ -542,29 +542,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let reportData: any[] = [];
       
       // For payroll records, we need to get data for each type
+      const options = {
+        startDate,
+        endDate,
+        includeUnapproved
+      };
+      
       if (recordType === 'all') {
         // Get all types of records
-        reportData = await storage.getPayrollRecords({
-          startDate,
-          endDate,
-          approved: includeUnapproved ? undefined : true
-        });
+        reportData = await storage.getReportData(options);
       } else if (recordType === 'earnings') {
         // Get all earnings types
-        const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance'];
-        reportData = await storage.getPayrollRecords({
-          startDate,
-          endDate,
-          recordType: { $in: earningTypes },
-          approved: includeUnapproved ? undefined : true
+        reportData = await storage.getReportData({
+          ...options,
+          recordType: 'earnings'
         });
       } else {
         // Get specific record type
-        reportData = await storage.getPayrollRecords({
-          startDate,
-          endDate,
-          recordType,
-          approved: includeUnapproved ? undefined : true
+        reportData = await storage.getReportData({
+          ...options,
+          recordType
         });
       }
       
@@ -643,8 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startDate,
         endDate,
         includeUnapproved,
-        recordCount: reportData.length,
-        createdAt: new Date()
+        recordCount: reportData.length
       });
       
       // Log the activity
@@ -894,11 +890,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create export record first
       const exportRecord = await storage.createExportRecord({
-        createdBy: userId,
-        reportName,
-        month: new Date(month),
-        includeRecordTypes,
-        format
+        userId,
+        exportType: 'payroll',
+        fileUrl: '',
+        startDate: new Date(month),
+        endDate: new Date(month),
+        fileFormat: format
       });
       
       // Get report data based on parameters
