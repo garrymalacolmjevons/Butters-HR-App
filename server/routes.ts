@@ -522,6 +522,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Report Generation Routes
+  app.post("/api/reports/generate", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const recordType = req.query.recordType as string || 'all';
+      const includeUnapproved = (req.query.includeUnapproved as string) === 'true';
+      const format = (req.query.format as string) || 'csv';
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'Start and end dates are required' });
+      }
+      
+      console.log(`Generating ${format} report for ${recordType} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      
+      // Get report data with the specific date range
+      let reportData: any[] = [];
+      
+      // For payroll records, we need to get data for each type
+      if (recordType === 'all') {
+        // Get all types of records
+        reportData = await storage.getPayrollRecords({
+          startDate,
+          endDate,
+          approved: includeUnapproved ? undefined : true
+        });
+      } else if (recordType === 'earnings') {
+        // Get all earnings types
+        const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance'];
+        reportData = await storage.getPayrollRecords({
+          startDate,
+          endDate,
+          recordType: { $in: earningTypes },
+          approved: includeUnapproved ? undefined : true
+        });
+      } else {
+        // Get specific record type
+        reportData = await storage.getPayrollRecords({
+          startDate,
+          endDate,
+          recordType,
+          approved: includeUnapproved ? undefined : true
+        });
+      }
+      
+      console.log(`Found ${reportData.length} records for report`);
+      
+      // Generate a unique filename for the export
+      const timestamp = new Date().getTime();
+      const fileName = `payroll-${recordType}-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}-${timestamp}`;
+      const filePath = `public/exports/${fileName}.${format}`;
+      const publicUrl = `/exports/${fileName}.${format}`;
+      
+      // Ensure the exports directory exists
+      const fs = require('fs');
+      const path = require('path');
+      if (!fs.existsSync('public/exports')) {
+        fs.mkdirSync('public/exports', { recursive: true });
+      }
+      
+      if (format === 'excel') {
+        // Generate Excel file
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Payroll Data');
+        
+        // Add headers - customize these to match what Tracey needs
+        worksheet.columns = [
+          { header: 'Employee Code', key: 'employeeCode', width: 15 },
+          { header: 'Employee Name', key: 'employeeName', width: 30 },
+          { header: 'Record Type', key: 'recordType', width: 20 },
+          { header: 'Date', key: 'date', width: 15 },
+          { header: 'Amount', key: 'amount', width: 15 },
+          { header: 'Description', key: 'description', width: 30 },
+          { header: 'Hours', key: 'hours', width: 10 },
+          { header: 'Rate', key: 'rate', width: 10 },
+          { header: 'Approved', key: 'approved', width: 10 }
+        ];
+        
+        // Add rows
+        worksheet.addRows(reportData.map((record: any) => ({
+          ...record,
+          date: new Date(record.date).toLocaleDateString(),
+          approved: record.approved ? 'Yes' : 'No'
+        })));
+        
+        // Save the file
+        await workbook.xlsx.writeFile(filePath);
+      } else {
+        // Generate CSV file
+        const { parse } = require('json2csv');
+        
+        // Format data for CSV - customize these fields to match what Tracey needs
+        const csvData = reportData.map((record: any) => ({
+          'Employee Code': record.employeeCode || '',
+          'Employee Name': record.employeeName,
+          'Record Type': record.recordType,
+          'Date': new Date(record.date).toLocaleDateString(),
+          'Amount': record.amount,
+          'Description': record.description || '',
+          'Hours': record.hours || '',
+          'Rate': record.rate || '',
+          'Approved': record.approved ? 'Yes' : 'No'
+        }));
+        
+        // Parse to CSV
+        const csv = parse(csvData);
+        
+        // Write file
+        fs.writeFileSync(filePath, csv);
+      }
+      
+      // Create export record in database
+      const exportRecord = await storage.createExportRecord({
+        userId,
+        exportType: recordType,
+        fileUrl: publicUrl,
+        fileFormat: format,
+        startDate,
+        endDate,
+        includeUnapproved,
+        recordCount: reportData.length,
+        createdAt: new Date()
+      });
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Generated Report",
+        details: `Generated ${format.toUpperCase()} report for ${recordType} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+      });
+      
+      res.status(200).json({
+        success: true,
+        exportId: exportRecord.id,
+        downloadUrl: publicUrl,
+        message: `Report generated successfully with ${reportData.length} records`
+      });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      res.status(500).json({ error: 'Failed to generate report: ' + error.message });
+    }
+  });
+  
+  // Get export records
+  app.get("/api/export-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const exports = await storage.getExportRecords({ userId });
+      res.json(exports);
+    } catch (error) {
+      console.error('Error fetching export records:', error);
+      res.status(500).json({ error: 'Failed to fetch export records' });
+    }
+  });
+
   // Recurring Deductions routes
   app.get("/api/recurring-deductions", isAuthenticated, async (req, res, next) => {
     try {
