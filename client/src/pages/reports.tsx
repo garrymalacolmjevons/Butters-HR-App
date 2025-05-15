@@ -41,8 +41,23 @@ export default function ReportsPage() {
   const [includeUnapproved, setIncludeUnapproved] = useState<boolean>(false);
   const [reportFormat, setReportFormat] = useState<string>("csv");
 
+  // Define type for export records
+  type ExportRecordType = {
+    id: number;
+    userId: number;
+    exportType: string;
+    fileUrl: string;
+    fileFormat: string;
+    startDate: string;
+    endDate: string;
+    includeUnapproved: boolean;
+    recordCount: number;
+    createdAt: string;
+    userName?: string;
+  };
+
   // Export history
-  const { data: exportHistory = [], isLoading: isLoadingHistory } = useQuery({
+  const { data: exportHistory = [], isLoading: isLoadingHistory } = useQuery<ExportRecordType[]>({
     queryKey: ['/api/export-records'],
   });
 
@@ -340,7 +355,7 @@ export default function ReportsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <span className="ml-2">Loading export history...</span>
               </div>
-            ) : exportHistory.length === 0 ? (
+            ) : (exportHistory as ExportRecordType[]).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No export history found.
               </div>
@@ -356,7 +371,7 @@ export default function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {exportHistory.map((record: any) => (
+                    {(exportHistory as ExportRecordType[]).map((record) => (
                       <TableRow key={record.id}>
                         <TableCell>
                           {formatDate(record.createdAt)}
