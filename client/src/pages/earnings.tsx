@@ -56,6 +56,8 @@ export default function EarningsPage() {
   const [showEarningForm, setShowEarningForm] = useState(false);
   const [currentEarningType, setCurrentEarningType] = useState<string | null>(null);
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [earningIdToEdit, setEarningIdToEdit] = useState<number | null>(null);
   
   // Form state
   const [formData, setFormData] = useState<EarningFormData>({
@@ -105,6 +107,34 @@ export default function EarningsPage() {
       });
     }
   });
+  
+  // Update earnings mutation
+  const updateEarning = useMutation({
+    mutationFn: async ({ id, data }: { id: number, data: any }) => {
+      const response = await apiRequest("PATCH", `/api/payroll-records/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/payroll-records'] });
+      toast({
+        title: "Success",
+        description: "Earning record updated successfully",
+        variant: "default",
+      });
+      setIsEditMode(false);
+      setEarningIdToEdit(null);
+      resetForm();
+    },
+    onError: (error) => {
+      console.error("Error updating earning:", error);
+      toast({
+        title: "Error",
+        description: `Failed to update earning: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
 
   const earningTypes = [
     {
@@ -148,6 +178,8 @@ export default function EarningsPage() {
       approved: false
     });
     setDate(new Date());
+    setIsEditMode(false);
+    setEarningIdToEdit(null);
   };
 
   const handleSelectEarningType = (earningTypeId: string) => {
@@ -164,6 +196,41 @@ export default function EarningsPage() {
     // Close the type selection dialog
     setShowEarningTypeDialog(false);
     // Open the earning form dialog
+    setShowEarningForm(true);
+  };
+  
+  // Handle editing an existing earning
+  const handleEditEarning = (earning: any) => {
+    // Map record type to tab id
+    const earnType = earningTypes.find(t => t.recordType === earning.recordType);
+    if (earnType) {
+      setCurrentEarningType(earnType.id);
+      setActiveTab(earnType.id);
+    }
+    
+    // Set form data from the earning record
+    setFormData({
+      employeeId: earning.employeeId,
+      date: earning.date,
+      amount: earning.amount,
+      recordType: earning.recordType,
+      hours: earning.hours || null,
+      rate: earning.rate || null,
+      description: earning.description || null,
+      notes: earning.notes || null,
+      approved: earning.approved || false
+    });
+    
+    // Set date for calendar
+    if (earning.date) {
+      setDate(new Date(earning.date));
+    }
+    
+    // Set edit mode
+    setIsEditMode(true);
+    setEarningIdToEdit(earning.id);
+    
+    // Open the form
     setShowEarningForm(true);
   };
 
@@ -219,7 +286,7 @@ export default function EarningsPage() {
     if (process.env.NODE_ENV === 'development') {
       toast({
         title: "Preview Mode",
-        description: "Earning would be saved in production. Form will be closed.",
+        description: isEditMode ? "Earning would be updated in production." : "Earning would be created in production.",
         variant: "default",
       });
       
@@ -234,8 +301,12 @@ export default function EarningsPage() {
       return;
     }
 
-    // Submit the data
-    createEarning.mutate(formData);
+    // Submit the data - either create or update
+    if (isEditMode && earningIdToEdit) {
+      updateEarning.mutate({ id: earningIdToEdit, data: formData });
+    } else {
+      createEarning.mutate(formData);
+    }
     
     // Close the form dialog
     setShowEarningForm(false);
@@ -247,10 +318,10 @@ export default function EarningsPage() {
   };
 
   const getFormTitle = () => {
-    if (!currentEarningType) return "Add Earning";
+    if (!currentEarningType) return isEditMode ? "Edit Earning" : "Add Earning";
     
     const type = earningTypes.find(t => t.id === currentEarningType);
-    return type ? `Add ${type.title}` : "Add Earning";
+    return type ? `${isEditMode ? 'Edit' : 'Add'} ${type.title}` : (isEditMode ? "Edit Earning" : "Add Earning");
   };
 
   const mapTabToRecordType = (tabId: string) => {
@@ -513,19 +584,19 @@ export default function EarningsPage() {
         </TabsList>
 
         <TabsContent value="overtime" className="mt-6">
-          <EarningsTable recordType="Overtime" />
+          <EarningsTable recordType="Overtime" onEditEarning={handleEditEarning} />
         </TabsContent>
 
         <TabsContent value="commission" className="mt-6">
-          <EarningsTable recordType="Commission" />
+          <EarningsTable recordType="Commission" onEditEarning={handleEditEarning} />
         </TabsContent>
 
         <TabsContent value="special-allowance" className="mt-6">
-          <EarningsTable recordType="Special Shift" />
+          <EarningsTable recordType="Special Shift" onEditEarning={handleEditEarning} />
         </TabsContent>
 
         <TabsContent value="escort-allowance" className="mt-6">
-          <EarningsTable recordType="Escort Allowance" />
+          <EarningsTable recordType="Escort Allowance" onEditEarning={handleEditEarning} />
         </TabsContent>
       </Tabs>
     </div>
