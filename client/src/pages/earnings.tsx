@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, X, CalendarIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { useAuth } from "@/lib/auth";
 import {
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Card,
@@ -21,11 +22,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Check } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 export default function EarningsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overtime");
   const [showEarningTypeDialog, setShowEarningTypeDialog] = useState(false);
+  const [showEarningForm, setShowEarningForm] = useState(false);
+  const [currentEarningType, setCurrentEarningType] = useState<string | null>(null);
+  const [date, setDate] = useState<Date | undefined>(new Date());
+
+  // Fetch employees
+  const { data: employees = [] } = useQuery({
+    queryKey: ['/api/employees'],
+  });
 
   const earningTypes = [
     {
@@ -51,12 +70,29 @@ export default function EarningsPage() {
   ];
 
   const handleSelectEarningType = (earningType: string) => {
-    // Switch to the selected tab
-    setActiveTab(earningType);
-    // Close the dialog
+    // Set the earning type
+    setCurrentEarningType(earningType);
+    // Close the type selection dialog
     setShowEarningTypeDialog(false);
+    // Open the earning form dialog
+    setShowEarningForm(true);
+  };
+
+  const handleSaveEarning = () => {
+    // Here you would implement saving the form data
+    // Close the form dialog
+    setShowEarningForm(false);
+    // Switch to the appropriate tab
+    if (currentEarningType) {
+      setActiveTab(currentEarningType);
+    }
+  };
+
+  const getFormTitle = () => {
+    if (!currentEarningType) return "Add Earning";
     
-    // Future enhancement: Could also open the specific form for that type
+    const type = earningTypes.find(t => t.id === currentEarningType);
+    return type ? `Add ${type.title}` : "Add Earning";
   };
 
   return (
@@ -108,6 +144,162 @@ export default function EarningsPage() {
           </Dialog>
         }
       />
+
+      {/* Earning Form Dialog */}
+      <Dialog open={showEarningForm} onOpenChange={setShowEarningForm}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <DialogTitle>{getFormTitle()}</DialogTitle>
+              <DialogClose>
+                <Button variant="ghost" size="icon">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+            <DialogDescription>
+              Fill in the details for the earning record.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employee">Employee</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((employee: any) => (
+                    <SelectItem key={employee.id} value={employee.id.toString()}>
+                      {employee.firstName} {employee.lastName} ({employee.employeeCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount</Label>
+                <Input 
+                  id="amount"
+                  type="number"
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+            
+            {currentEarningType === 'overtime' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="hours">Hours</Label>
+                  <Input 
+                    id="hours"
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    step="0.5"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="rate">Rate</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Rate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekday">Weekday (R400 × 1.5)</SelectItem>
+                      <SelectItem value="saturday">Saturday (R400 × 2.0)</SelectItem>
+                      <SelectItem value="sunday">Sunday (R400 × 2.0)</SelectItem>
+                      <SelectItem value="public-holiday">Public Holiday (R400 × 3.0)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            
+            {currentEarningType === 'commission' && (
+              <div className="space-y-2">
+                <Label htmlFor="commissionType">Commission Type</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Commission Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sales">Sales Commission</SelectItem>
+                    <SelectItem value="bonus">Performance Bonus</SelectItem>
+                    <SelectItem value="other">Other Commission</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea 
+                id="description"
+                placeholder="Enter a description for this earning"
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea 
+                id="notes"
+                placeholder="Enter any additional notes about this earning"
+                rows={2}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <Switch id="approved" />
+                <Label htmlFor="approved">Approved?</Label>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowEarningForm(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEarning}>
+              Save Earning
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 w-full">
