@@ -6,6 +6,11 @@ import { seed } from "./seed";
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+// Add raw body parser for CSV imports
+app.use(express.raw({ 
+  type: 'text/csv',
+  limit: '5mb'
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();

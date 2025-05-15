@@ -144,9 +144,10 @@ export const importEmployeeSchema = z.object({
   employeeCode: z.string().min(1, "Employee code is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  department: z.enum(['Security', 'Administration', 'Operations']),
+  department: z.enum(['Security', 'Administration', 'Operations']).default('Security'),
   position: z.string().min(1, "Position is required"),
   email: z.string().email("Invalid email format").optional(),
+  company: z.string().default('Butters'),
   status: z.enum(['Active', 'On Leave', 'Terminated']).default('Active')
 });
 

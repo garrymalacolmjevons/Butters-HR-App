@@ -119,6 +119,14 @@ export async function parseCSV(file: File, options: CSVParseOptions): Promise<Im
               employee.status = "Active";
             }
             
+            if (!employee.department) {
+              employee.department = "Security";
+            }
+            
+            if (!employee.company) {
+              employee.company = "Butters";
+            }
+            
             // Skip if any required field is missing
             const missing = options.requiredFields.filter(field => !employee[field]);
             if (missing.length > 0) {

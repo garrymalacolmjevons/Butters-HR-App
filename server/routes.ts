@@ -278,48 +278,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing CSV data" });
       }
       
+      console.log("Received CSV data, first 200 chars:", csvData.substring(0, 200));
+      
       // Parse CSV data
       const records = parse(csvData, {
         columns: true,
-        skip_empty_lines: true
+        skip_empty_lines: true,
+        trim: true
       });
+      
+      console.log("Parsed records count:", records.length);
+      if (records.length > 0) {
+        console.log("First record keys:", Object.keys(records[0]));
+      }
       
       // Transform the records to match our schema
+      // Specifically for the "Butts IMport.csv" format
       const transformedRecords = records.map((record: any) => {
-        // Extract values using case-insensitive field names
-        const getField = (possibleNames: string[]) => {
-          for (const name of possibleNames) {
-            for (const key of Object.keys(record)) {
-              if (key.toLowerCase() === name.toLowerCase()) {
-                return record[key];
+        // Direct field mapping for Butts Import.csv format
+        let data = {
+          employeeCode: record.employeeCode || '',
+          firstName: record.firstName || '',
+          lastName: record.lastName || '',
+          department: record.department || 'Security',
+          position: record.position || '',
+          company: record.company || 'Butters',
+          status: 'Active'
+        };
+        
+        // If our direct mapping doesn't work, try to find fields using case-insensitive comparison
+        if (!data.employeeCode || !data.firstName || !data.lastName || !data.position) {
+          const getField = (possibleNames: string[]) => {
+            for (const name of possibleNames) {
+              for (const key of Object.keys(record)) {
+                if (key.toLowerCase() === name.toLowerCase()) {
+                  return record[key];
+                }
               }
             }
+            return '';
+          };
+          
+          // For employee code field specifically check more options
+          if (!data.employeeCode) {
+            data.employeeCode = getField(['code', 'id', 'employee code', 'employee_code', 'employeeid']);
           }
-          return undefined;
-        };
+          
+          // Try to find the name fields with various naming conventions
+          if (!data.firstName) {
+            data.firstName = getField(['first name', 'first_name', 'fname', 'name', 'firstname']);
+          }
+          
+          if (!data.lastName) {
+            data.lastName = getField(['last name', 'last_name', 'lname', 'surname', 'lastname']);
+          }
+          
+          if (!data.position) {
+            data.position = getField(['title', 'job title', 'job_title', 'jobtitle', 'role']);
+          }
+        }
         
-        // Map CSV fields to our schema fields
-        const employeeCode = getField(['employeeCode', 'employee_code', 'employeecode', 'code', 'id', 'employee id', 'employee_id', 'employeeid']);
-        const firstName = getField(['firstName', 'first_name', 'firstname', 'fname', 'first name', 'name', 'firstname']);
-        const lastName = getField(['lastName', 'last_name', 'lastname', 'lname', 'last name', 'surname']);
-        const company = getField(['company', 'organization', 'org']);
-        const department = getField(['department', 'dept', 'division']);
-        const position = getField(['position', 'title', 'job title', 'job_title', 'jobtitle', 'role']);
-        const status = getField(['status', 'employee status', 'employee_status', 'employeestatus']);
-        
-        return {
-          employeeCode,
-          firstName, 
-          lastName,
-          department: department || 'Security',
-          position,
-          company: company || 'Butters',
-          status: status || 'Active'
-        };
+        return data;
       });
       
+      // Final validation and cleaning
+      const validRecords = transformedRecords.filter(record => 
+        record.employeeCode && record.firstName && record.lastName && record.position
+      );
+      
+      if (validRecords.length === 0) {
+        return res.status(400).json({ 
+          error: "No valid employee records found in CSV. Make sure your CSV includes employeeCode, firstName, lastName, and position fields." 
+        });
+      }
+      
       // Validate transformed records
-      const employeeData = bulkImportEmployeeSchema.parse(transformedRecords);
+      const employeeData = bulkImportEmployeeSchema.parse(validRecords);
       
       // Bulk create or update employees
       const result = await storage.bulkCreateOrUpdateEmployees(employeeData);
