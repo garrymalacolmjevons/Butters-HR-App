@@ -242,10 +242,10 @@ export class DatabaseStorage implements IStorage {
       userName: users.fullName
     })
     .from(exportRecords)
-    .leftJoin(users, eq(exportRecords.createdBy, users.id));
+    .leftJoin(users, eq(exportRecords.userId, users.id));
     
     if (filter?.userId) {
-      return await exportWithUserQuery.where(eq(exportRecords.createdBy, filter.userId));
+      return await exportWithUserQuery.where(eq(exportRecords.userId, filter.userId));
     }
     
     return await exportWithUserQuery;
@@ -775,33 +775,5 @@ export class DatabaseStorage implements IStorage {
     );
     
     return await query;
-  }
-  
-  // Get export records
-  async getExportRecords(filter?: { userId?: number }): Promise<(ExportRecord & { userName: string })[]> {
-    let query = db
-      .select({
-        ...exportRecords,
-        userName: users.fullName
-      })
-      .from(exportRecords)
-      .leftJoin(users, eq(exportRecords.userId, users.id))
-      .orderBy(desc(exportRecords.createdAt));
-    
-    if (filter?.userId) {
-      query = query.where(eq(exportRecords.userId, filter.userId));
-    }
-    
-    return await query;
-  }
-  
-  // Create export record
-  async createExportRecord(exportRecord: InsertExportRecord): Promise<ExportRecord> {
-    const [record] = await db
-      .insert(exportRecords)
-      .values(exportRecord)
-      .returning();
-    
-    return record;
   }
 }
