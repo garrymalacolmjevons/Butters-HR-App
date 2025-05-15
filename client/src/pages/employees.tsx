@@ -8,11 +8,12 @@ import { useLocation } from "wouter";
 
 import { PageHeader, PageHeaderAction } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { FolderInput, Plus } from "lucide-react";
+import { FolderInput, Plus, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmployeeTable } from "@/components/employees/employee-table";
 import { ImportModal } from "@/components/employees/import-modal";
+import { EmployeeWorkflow } from "@/components/employees/employee-workflow";
 
 export default function Employees() {
   const [location, setLocation] = useLocation();
@@ -22,6 +23,7 @@ export default function Employees() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("All Departments");
   const [statusFilter, setStatusFilter] = useState<string>("All Status");
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState<boolean>(false);
 
   // Check if import modal should be opened based on URL query parameter
   useEffect(() => {
