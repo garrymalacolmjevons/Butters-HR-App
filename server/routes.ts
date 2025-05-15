@@ -435,8 +435,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payroll-records", isAuthenticated, async (req, res, next) => {
     try {
       const userId = (req.user as any).id;
+      const { sendNotification, ...payloadData } = req.body;
+      
       const data = insertPayrollRecordSchema.parse({
-        ...req.body,
+        ...payloadData,
         createdBy: userId
       });
       
@@ -448,6 +450,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: "Create Payroll Record",
         details: `Created ${record.recordType} record for employee ID ${record.employeeId}`
       });
+      
+      // Handle special cases based on record type
+      if (record.recordType === "Bank Account Change" && sendNotification) {
+        try {
+          // Get the employee details
+          const employee = await storage.getEmployee(record.employeeId);
+          if (!employee) {
+            throw new Error("Employee not found");
+          }
+          
+          // Get email settings
+          const emailSettings = await storage.getEmailSettings();
+          
+          if (emailSettings && emailSettings.smtpServer) {
+            // TODO: Send email to Sherry
+            // This is where we would integrate with SendGrid or another email provider
+            console.log(`Would send bank account change notification for ${employee.firstName} ${employee.lastName} to sherry@hitecsecurity.co.za`);
+            
+            // Create a special activity log for Tracey
+            await storage.createActivityLog({
+              userId,
+              action: "Bank Account Change Request",
+              details: `Bank account change for ${employee.firstName} ${employee.lastName} (${employee.employeeCode}) needs to be processed by Tracey`
+            });
+          }
+        } catch (emailError) {
+          console.error("Failed to send email notification:", emailError);
+          // Don't fail the request if email sending fails
+        }
+      }
+      
+      // Handle employee status update for terminations
+      if (record.recordType === "Termination" && record.approved) {
+        try {
+          // Update the employee status to "Terminated"
+          await storage.updateEmployee(record.employeeId, {
+            status: "Terminated"
+          });
+          
+          console.log(`Updated employee ${record.employeeId} status to Terminated`);
+        } catch (updateError) {
+          console.error("Failed to update employee status:", updateError);
+        }
+      }
       
       res.status(201).json(record);
     } catch (error) {
