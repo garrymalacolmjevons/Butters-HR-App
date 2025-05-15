@@ -32,6 +32,8 @@ import {
 export default function ReportsPage() {
   const { toast } = useToast();
   
+  // No duplicate function needed
+  
   // Date range state
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -111,10 +113,7 @@ export default function ReportsPage() {
     window.location.href = exportUrl;
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "dd MMM yyyy, HH:mm");
-  };
+
 
   // Get export record type display name
   const getExportTypeLabel = (type: string) => {
@@ -187,11 +186,18 @@ export default function ReportsPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Payroll Reports</h1>
-        <p className="text-muted-foreground mt-2">
-          Generate and download payroll reports for processing
-        </p>
+      <div className="flex items-center justify-between border-b pb-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Payroll Reports</h1>
+          <p className="text-muted-foreground mt-2">
+            Generate and download payroll reports for processing
+          </p>
+        </div>
+        <img 
+          src="/logo.jpg" 
+          alt="Hi-Tec Security Logo" 
+          className="h-16 w-auto"
+        />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
