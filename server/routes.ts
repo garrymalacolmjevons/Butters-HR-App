@@ -1722,6 +1722,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Policy Import 
+  app.post("/api/policies/import", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Check if we received raw CSV data
+      let csvData;
+      if (req.headers['content-type']?.includes('text/csv')) {
+        // Handle raw CSV data
+        csvData = req.body.toString();
+      } else if (req.body.csvData) {
+        // Handle JSON with csvData field
+        csvData = req.body.csvData;
+      } else {
+        return res.status(400).json({ error: "Missing CSV data" });
+      }
+      
+      console.log("Received policy CSV data, first 200 chars:", csvData.substring(0, 200));
+      
+      // Parse CSV data
+      const records = parse(csvData, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        cast: true
+      });
+      
+      console.log("Parsed policy records count:", records.length);
+      if (records.length > 0) {
+        console.log("First policy record keys:", Object.keys(records[0]));
+        console.log("First policy record data:", JSON.stringify(records[0], null, 2));
+      }
+      
+      // Transform the records to match our schema
+      const transformedRecords = records.map((record: any) => {
+        // Extract values from record using flexible header names
+        const getField = (record: any, possibleNames: string[]): string => {
+          for (const name of possibleNames) {
+            if (record[name] !== undefined) {
+              return record[name];
+            }
+          }
+          
+          // Try case-insensitive match
+          const lowerPossibleNames = possibleNames.map(n => n.toLowerCase());
+          for (const key of Object.keys(record)) {
+            if (lowerPossibleNames.includes(key.toLowerCase())) {
+              return record[key];
+            }
+          }
+          
+          return '';
+        };
+        
+        // Extract employee code, could be numeric or string format
+        const employeeCode = getField(record, ['Employee', 'employee', 'EmployeeCode', 'employeeCode', 'employee_code', 'code', 'ID']);
+        
+        // Extract company name
+        const company = getField(record, ['Company', 'company', 'InsuranceCompany', 'insurance_company']);
+        
+        // Extract amount/premium, handle 'R' prefix
+        let amount = getField(record, ['Value', 'value', 'Amount', 'amount', 'Premium', 'premium']);
+        if (typeof amount === 'string') {
+          // Remove currency symbol and convert to number
+          amount = amount.replace(/^R/, '').replace(/,/g, '');
+        }
+        
+        // Extract policy number from comment field
+        let notes = getField(record, ['Comment', 'comment', 'Notes', 'notes', 'Description', 'description']);
+        let policyNumber = '';
+        
+        // Try to extract policy number from notes
+        const policyMatch = notes.match(/POLICY\s*NUMBER\s*:?\s*([^\s,]+)/i);
+        if (policyMatch && policyMatch[1]) {
+          policyNumber = policyMatch[1].trim();
+        } else {
+          policyNumber = notes.trim();
+        }
+        
+        // Extract status
+        const status = getField(record, ['Status', 'status', 'PolicyStatus', 'policy_status']);
+        
+        // Extract first and last name
+        const firstName = getField(record, ['FirstName', 'firstname', 'first_name', 'First Name']);
+        const lastName = getField(record, ['LastName', 'lastname', 'last_name', 'Last Name']);
+        
+        return {
+          employeeCode,
+          firstName,
+          lastName,
+          company,
+          amount: parseFloat(amount) || 0,
+          notes,
+          policyNumber,
+          status
+        };
+      });
+      
+      // Process the transformed records
+      let created = 0;
+      let updated = 0;
+      let errors = 0;
+      
+      for (const record of transformedRecords) {
+        try {
+          // Find the employee by code
+          let employee = await storage.getEmployeeByCode(record.employeeCode);
+          
+          // If we have both first and last name but no employee, try finding by name
+          if (!employee && record.firstName && record.lastName) {
+            const employees = await storage.getEmployees();
+            employee = employees.find(e => 
+              e.firstName.toLowerCase() === record.firstName.toLowerCase() && 
+              e.lastName.toLowerCase() === record.lastName.toLowerCase()
+            );
+          }
+          
+          if (!employee) {
+            console.log(`Cannot find employee with code: ${record.employeeCode}, name: ${record.firstName} ${record.lastName}`);
+            errors++;
+            continue;
+          }
+          
+          // Check if policy already exists
+          const existingPolicies = await storage.getInsurancePolicies({
+            employeeId: employee.id,
+            company: record.company
+          });
+          
+          const existingPolicy = existingPolicies.find(p => 
+            p.policyNumber === record.policyNumber || 
+            (p.policyNumber === '' && p.notes?.includes(record.policyNumber))
+          );
+          
+          if (existingPolicy) {
+            // Update existing policy
+            await storage.updateInsurancePolicy(existingPolicy.id, {
+              amount: record.amount,
+              status: record.status,
+              notes: record.notes,
+              updatedBy: userId
+            });
+            updated++;
+          } else {
+            // Create new policy
+            await storage.createInsurancePolicy({
+              employeeId: employee.id,
+              company: record.company,
+              policyNumber: record.policyNumber,
+              amount: record.amount,
+              startDate: new Date().toISOString().split('T')[0],
+              status: record.status,
+              notes: record.notes,
+              createdBy: userId,
+              updatedBy: userId
+            });
+            created++;
+          }
+        } catch (err) {
+          console.error("Error processing policy record:", err);
+          errors++;
+        }
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Import Policies",
+        details: `Imported ${created + updated} policies (${created} new, ${updated} updated, ${errors} errors)`,
+        timestamp: new Date()
+      });
+      
+      res.status(200).json({
+        message: "Import completed",
+        created,
+        updated,
+        errors
+      });
+    } catch (error) {
+      console.error("Policy import error:", error);
+      res.status(500).json({ error: "Failed to import policies" });
+    }
+  });
+  
   // Policy Payments Routes
   // Get all policy payments with optional filtering
   app.get("/api/policy-payments", isAuthenticated, async (req, res, next) => {
