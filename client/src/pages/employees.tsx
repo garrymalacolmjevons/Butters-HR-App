@@ -84,6 +84,43 @@ export default function Employees() {
       description: "Employee data has been successfully imported.",
     });
   };
+  
+  // Mutation for creating new employee
+  const createEmployeeMutation = useMutation({
+    mutationFn: (newEmployee: InsertEmployee) => 
+      apiRequest("/api/employees", "POST", newEmployee),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setIsWorkflowModalOpen(false);
+      toast({
+        title: "Employee Created",
+        description: "New employee has been successfully onboarded.",
+      });
+      
+      // Log activity for audit trail - wrapped in try/catch to prevent critical errors
+      try {
+        apiRequest("/api/activity-logs", "POST", {
+          action: "Create Employee",
+          details: `Onboarded new employee using workflow process`
+        });
+      } catch (err) {
+        console.error("Failed to log activity:", err);
+      }
+    },
+    onError: (error) => {
+      console.error("Error creating employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create employee. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Handler for submitting the employee workflow form
+  const handleEmployeeWorkflowSubmit = (values: InsertEmployee) => {
+    createEmployeeMutation.mutate(values);
+  };
 
   return (
     <div className="p-6">
@@ -100,6 +137,15 @@ export default function Employees() {
             >
               <FolderInput className="h-4 w-4" />
               <span>Import VIP Data</span>
+            </Button>
+            
+            <Button 
+              onClick={() => setIsWorkflowModalOpen(true)}
+              variant="default"
+              className="flex items-center space-x-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              <span>New Employee</span>
             </Button>
           </div>
         }
@@ -191,6 +237,13 @@ export default function Employees() {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSuccess={handleImportSuccess}
+      />
+      
+      <EmployeeWorkflow
+        isOpen={isWorkflowModalOpen}
+        onClose={() => setIsWorkflowModalOpen(false)}
+        onSubmit={handleEmployeeWorkflowSubmit}
+        isSubmitting={createEmployeeMutation.isPending}
       />
     </div>
   );
