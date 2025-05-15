@@ -3,9 +3,9 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { ActivityList } from "@/components/dashboard/activity-list";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Calendar, Clock, RefreshCw } from "lucide-react";
+import { Users, FileText, BanknoteIcon, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { queryClient } from "@/lib/queryClient";
 
 export default function Dashboard() {
@@ -34,7 +34,7 @@ export default function Dashboard() {
         <SummaryCard
           title="Total Employees"
           value={isLoadingDashboard ? "Loading..." : dashboardData?.employeeCount || 0}
-          icon={<Users />}
+          icon={<Users className="text-amber-500" />}
           breakdown={
             isLoadingDashboard
               ? { hitec: "-", staff: "-" }
@@ -46,53 +46,46 @@ export default function Dashboard() {
         />
         
         <SummaryCard
-          title="Pending Leave"
-          value={isLoadingDashboard ? "Loading..." : dashboardData?.pendingLeaveCount || 0}
-          icon={<Calendar />}
+          title="Policy Value Total"
+          value={isLoadingDashboard ? "Loading..." : formatCurrency(dashboardData?.policyValueTotal || 0)}
+          icon={<FileText className="text-green-600" />}
           breakdown={
             isLoadingDashboard
               ? { primary: "-", secondary: "-" }
               : {
-                  primary: "Pending Approval",
+                  primary: "Active Policies",
                   secondary: "This Month",
                 }
           }
         />
         
         <SummaryCard
-          title="Monthly Overtime"
-          value={isLoadingDashboard ? "Loading..." : `${dashboardData?.overtimeHours || 0} hrs`}
-          icon={<Clock />}
+          title="Total Monthly Earnings"
+          value={isLoadingDashboard ? "Loading..." : formatCurrency(dashboardData?.monthlyEarnings || 0)}
+          icon={<BanknoteIcon className="text-blue-600" />}
           breakdown={
             isLoadingDashboard
               ? { primary: "-", secondary: "-" }
               : {
-                  primary: "Regular Hours",
+                  primary: "All Earnings",
                   secondary: "This Month",
                 }
           }
         />
         
-        <Card className="bg-white">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-neutral-700">Data Last Updated</h3>
-              <RefreshCw className="text-neutral-500 text-xl" />
-            </div>
-            <p className="text-xl font-medium">
-              {isLoadingDashboard
-                ? "Loading..."
-                : formatDateTime(dashboardData?.lastUpdated)}
-            </p>
-            <Button 
-              variant="ghost" 
-              className="mt-2 text-sm text-primary hover:text-primary-dark flex items-center"
-              onClick={handleRefresh}
-            >
-              <RefreshCw className="mr-1 h-4 w-4" /> Refresh Data
-            </Button>
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title="Total Deductions"
+          value={isLoadingDashboard ? "Loading..." : formatCurrency(dashboardData?.totalDeductions || 0)}
+          icon={<DollarSign className="text-red-500" />}
+          breakdown={
+            isLoadingDashboard
+              ? { primary: "-", secondary: "-" }
+              : {
+                  primary: "All Deductions",
+                  secondary: "This Month",
+                }
+          }
+        />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -106,6 +99,16 @@ export default function Dashboard() {
         
         {/* Quick Actions */}
         <QuickActions />
+      </div>
+      
+      <div className="flex justify-end mt-4">
+        <Button 
+          variant="outline" 
+          className="text-primary hover:text-primary-dark flex items-center"
+          onClick={handleRefresh}
+        >
+          Refresh Dashboard Data
+        </Button>
       </div>
     </div>
   );
