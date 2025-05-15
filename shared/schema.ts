@@ -49,6 +49,10 @@ export const employees = pgTable("employees", {
   email: text("email"),
   status: employeeStatusEnum("status").default('Active'),
   dateJoined: timestamp("date_joined").defaultNow(),
+  vipCode: text("vip_code"),
+  vipCodeRequested: boolean("vip_code_requested").default(false),
+  vipCodeRequestDate: timestamp("vip_code_request_date"),
+  vipCodeStatus: text("vip_code_status").default('Not Requested'),
 });
 
 // Payroll Records
@@ -184,7 +188,14 @@ export const policyExports = pgTable("policy_exports", {
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
-export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, dateJoined: true });
+export const insertEmployeeSchema = createInsertSchema(employees).omit({ 
+  id: true, 
+  dateJoined: true,
+  vipCode: true,
+  vipCodeRequested: true,
+  vipCodeRequestDate: true,
+  vipCodeStatus: true 
+});
 export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({ id: true, createdAt: true });
 export const insertRecurringDeductionSchema = createInsertSchema(recurringDeductions).omit({ id: true, createdAt: true });
 export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({ id: true, createdAt: true });

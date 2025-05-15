@@ -288,39 +288,60 @@ export class DatabaseStorage implements IStorage {
   // Dashboard data
   async getDashboardData(): Promise<{
     employeeCount: number;
-    pendingLeaveCount: number;
-    overtimeHours: number;
-    lastUpdated: Date;
+    policyValueTotal: number;
+    monthlyEarnings: number;
+    totalDeductions: number;
   }> {
     // Get count of all employees
     const [employeeResult] = await db.select({
       count: count()
     }).from(employees);
     
-    // Get count of pending leave records
-    const [leaveResult] = await db.select({
-      count: count()
+    // Get sum of all active policy values
+    const [policyValueResult] = await db.select({
+      total: sql<number>`sum(${insurancePolicies.amount})`
+    })
+    .from(insurancePolicies)
+    .where(eq(insurancePolicies.status, 'Active'));
+    
+    // Get current month date range
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    // Get sum of all earnings for the current month
+    const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance', 'Standby'];
+    const [earningsResult] = await db.select({
+      total: sql<number>`sum(${payrollRecords.amount})`
     })
     .from(payrollRecords)
     .where(
       and(
-        eq(payrollRecords.recordType, 'Leave'),
-        eq(payrollRecords.status, 'Pending')
+        inArray(payrollRecords.recordType, earningTypes),
+        gte(payrollRecords.date, startOfMonth),
+        lte(payrollRecords.date, endOfMonth)
       )
     );
     
-    // Get sum of overtime hours
-    const [overtimeResult] = await db.select({
-      total: sql<number>`sum(${payrollRecords.hours})`
+    // Get sum of all deductions for the current month
+    const deductionTypes = ['Deduction', 'Loan', 'Advance'];
+    const [deductionsResult] = await db.select({
+      total: sql<number>`sum(${payrollRecords.amount})`
     })
     .from(payrollRecords)
-    .where(eq(payrollRecords.recordType, 'Overtime'));
+    .where(
+      and(
+        inArray(payrollRecords.recordType, deductionTypes),
+        gte(payrollRecords.date, startOfMonth),
+        lte(payrollRecords.date, endOfMonth)
+      )
+    );
     
     return {
       employeeCount: Number(employeeResult?.count || 0),
-      pendingLeaveCount: Number(leaveResult?.count || 0),
-      overtimeHours: Number(overtimeResult?.total || 0),
-      lastUpdated: new Date()
+      policyValueTotal: Number(policyValueResult?.total || 0),
+      monthlyEarnings: Number(earningsResult?.total || 0),
+      totalDeductions: Number(deductionsResult?.total || 0)
     };
   }
 

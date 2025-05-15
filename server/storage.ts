@@ -106,9 +106,9 @@ export interface IStorage {
   // Dashboard data
   getDashboardData(): Promise<{
     employeeCount: number;
-    pendingLeaveCount: number;
-    overtimeHours: number;
-    lastUpdated: Date;
+    policyValueTotal: number;
+    monthlyEarnings: number;
+    totalDeductions: number;
   }>;
   
   // Report data for exports
