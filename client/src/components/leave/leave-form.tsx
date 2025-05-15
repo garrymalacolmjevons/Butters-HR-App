@@ -35,6 +35,10 @@ import { WebcamCapture } from "@/components/common/webcam-capture";
 const leaveFormSchema = insertPayrollRecordSchema.extend({
   // Add any additional validation or fields if needed
   documentImage: z.string().optional().nullable(),
+  // Make sure date fields accept future dates (including 2025)
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  date: z.coerce.date(),
 });
 
 type LeaveFormValues = z.infer<typeof leaveFormSchema>;
@@ -203,7 +207,19 @@ export function LeaveForm({
     const valuesWithImage = {
       ...values,
       documentImage: capturedImage,
+      // Ensure date fields are properly formatted as strings
+      startDate: values.startDate ? 
+        (typeof values.startDate === 'string' ? values.startDate : values.startDate.toISOString().split('T')[0]) 
+        : undefined,
+      endDate: values.endDate ? 
+        (typeof values.endDate === 'string' ? values.endDate : values.endDate.toISOString().split('T')[0]) 
+        : undefined,
+      date: values.date ? 
+        (typeof values.date === 'string' ? values.date : values.date.toISOString().split('T')[0]) 
+        : undefined,
     };
+    
+    console.log("Submitting leave form with values:", valuesWithImage);
     onSubmit(valuesWithImage);
   };
 
@@ -274,7 +290,10 @@ export function LeaveForm({
                 render={({ field }) => (
                   <FormItem className="col-span-2">
                     <FormLabel>Leave Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || "Annual Leave"} // Set a default value
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select Leave Type" />
@@ -306,7 +325,8 @@ export function LeaveForm({
                         {...field}
                         value={selectedStartDate || ""}
                         onChange={(e) => {
-                          field.onChange(e);
+                          // Use the raw string value to avoid date validation issues
+                          field.onChange(e.target.value);
                           setSelectedStartDate(e.target.value);
                         }}
                       />
@@ -328,7 +348,8 @@ export function LeaveForm({
                         {...field}
                         value={selectedEndDate || ""}
                         onChange={(e) => {
-                          field.onChange(e);
+                          // Use the raw string value to avoid date validation issues
+                          field.onChange(e.target.value);
                           setSelectedEndDate(e.target.value);
                         }}
                       />
@@ -515,7 +536,8 @@ export function LeaveForm({
                         {...field}
                         value={selectedRecordDate || ""}
                         onChange={(e) => {
-                          field.onChange(e);
+                          // Use the input's raw value string for display
+                          field.onChange(e.target.value);
                           setSelectedRecordDate(e.target.value);
                         }}
                       />
