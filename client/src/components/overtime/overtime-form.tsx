@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { EmployeeWithFullName } from "@shared/schema";
 
 // Extend the insert schema with validation
@@ -66,7 +67,7 @@ export function OvertimeForm({
       recordType: "Overtime",
       hours: defaultValues?.hours || 0,
       rate: defaultValues?.rate || 1.5,
-      status: defaultValues?.status || "Pending",
+      approved: defaultValues?.approved || false, // Default to not approved
       date: defaultValues?.date || new Date().toISOString().split('T')[0]
     },
   });
@@ -287,35 +288,20 @@ export function OvertimeForm({
 
               <FormField
                 control={form.control}
-                name="status"
+                name="approved"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Status</FormLabel>
+                  <FormItem className="col-span-2 flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Was this overtime approved?</FormLabel>
+                      <FormDescription>
+                        Toggle to confirm whether this overtime was approved by management
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex space-x-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Pending" id="status-pending" />
-                          <FormLabel htmlFor="status-pending" className="font-normal">
-                            Pending
-                          </FormLabel>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Approved" id="status-approved" />
-                          <FormLabel htmlFor="status-approved" className="font-normal">
-                            Approved
-                          </FormLabel>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Rejected" id="status-rejected" />
-                          <FormLabel htmlFor="status-rejected" className="font-normal">
-                            Rejected
-                          </FormLabel>
-                        </div>
-                      </RadioGroup>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
