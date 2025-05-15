@@ -282,24 +282,7 @@ export default function EarningsPage() {
       return;
     }
 
-    // For development preview only - temporary
-    if (process.env.NODE_ENV === 'development') {
-      toast({
-        title: "Preview Mode",
-        description: isEditMode ? "Earning would be updated in production." : "Earning would be created in production.",
-        variant: "default",
-      });
-      
-      // Close the form dialog
-      setShowEarningForm(false);
-      
-      // Switch to the appropriate tab
-      if (currentEarningType) {
-        setActiveTab(currentEarningType);
-      }
-      
-      return;
-    }
+    // We've removed the development-only check to allow real API calls
 
     // Submit the data - either create or update
     if (isEditMode && earningIdToEdit) {
@@ -407,11 +390,11 @@ export default function EarningsPage() {
                   <SelectValue placeholder="Select Employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.isArray(employees) && employees.map((employee: any) => (
+                  {Array.isArray(employees) ? employees.map((employee: any) => (
                     <SelectItem key={employee.id} value={employee.id.toString()}>
                       {employee.firstName} {employee.lastName} ({employee.employeeCode})
                     </SelectItem>
-                  ))}
+                  )) : null}
                 </SelectContent>
               </Select>
             </div>
@@ -482,12 +465,12 @@ export default function EarningsPage() {
                       <SelectValue placeholder="Select Rate Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.isArray(overtimeRates) && overtimeRates.map((rate: any) => (
+                      {Array.isArray(overtimeRates) ? overtimeRates.map((rate: any) => (
                         <SelectItem key={rate.id} value={rate.rate.toString()}>
                           {rate.overtimeType} (×{rate.rate})
                         </SelectItem>
-                      ))}
-                      {(!overtimeRates || overtimeRates.length === 0) && (
+                      )) : null}
+                      {(!Array.isArray(overtimeRates) || overtimeRates.length === 0) && (
                         <>
                           <SelectItem value="1.5">Weekday (×1.5)</SelectItem>
                           <SelectItem value="2.0">Saturday/Sunday (×2.0)</SelectItem>
