@@ -64,12 +64,30 @@ export const payrollRecords = pgTable("payroll_records", {
   status: leaveStatusEnum("status"), // For leave and termination
   details: text("details"), // For bank account changes, special instructions, etc.
   description: text("description"), // For categorization
-  recurring: boolean("recurring").default(false), // For recurring deductions/allowances
   approved: boolean("approved").default(false),
   notes: text("notes"),
   documentImage: text("document_image"), // URL to the signed document image
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Recurring Deductions
+export const recurringDeductions = pgTable("recurring_deductions", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull(),
+  deductionName: text("deduction_name").notNull(),
+  amount: real("amount").notNull(),
+  startDate: date("start_date").notNull(), // When the recurring deduction begins
+  endDate: date("end_date"), // Optional end date (null means indefinite)
+  frequency: text("frequency").default("monthly"), // monthly, weekly, etc.
+  description: text("description"),
+  approved: boolean("approved").default(false), // Was this deduction approved
+  referenceNumber: text("reference_number"), // For cross-referencing with physical documents
+  documentImage: text("document_image"), // URL to the signed document image
+  notes: text("notes"),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  active: boolean("active").default(true), // To deactivate without deleting
 });
 
 // Export Records
@@ -120,6 +138,7 @@ export const overtimeRates = pgTable("overtime_rates", {
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, dateJoined: true });
 export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({ id: true, createdAt: true });
+export const insertRecurringDeductionSchema = createInsertSchema(recurringDeductions).omit({ id: true, createdAt: true });
 export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({ id: true, createdAt: true });
 export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
@@ -191,6 +210,32 @@ export const relations = {
         },
       },
     },
+    recurringDeductions: {
+      one: {
+        recurringDeductions: {
+          references: [employees.id],
+          foreignKey: recurringDeductions.employeeId,
+        },
+      },
+    },
+  },
+  recurringDeductions: {
+    employee: {
+      one: {
+        employees: {
+          references: [employees.id],
+          foreignKey: recurringDeductions.employeeId,
+        },
+      },
+    },
+    createdByUser: {
+      one: {
+        users: {
+          references: [users.id],
+          foreignKey: recurringDeductions.createdBy,
+        },
+      },
+    },
   },
 };
 
@@ -201,6 +246,8 @@ export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type PayrollRecord = typeof payrollRecords.$inferSelect;
 export type InsertPayrollRecord = z.infer<typeof insertPayrollRecordSchema>;
+export type RecurringDeduction = typeof recurringDeductions.$inferSelect;
+export type InsertRecurringDeduction = z.infer<typeof insertRecurringDeductionSchema>;
 export type ExportRecord = typeof exportRecords.$inferSelect;
 export type InsertExportRecord = z.infer<typeof insertExportRecordSchema>;
 export type EmailSettings = typeof emailSettings.$inferSelect;
