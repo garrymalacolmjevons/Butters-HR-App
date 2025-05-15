@@ -266,18 +266,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).id;
       
-      // Parse CSV data from the request body
-      if (!req.body.csvData) {
+      // Check if we received raw CSV data or JSON with csvData field
+      let csvData;
+      if (req.headers['content-type']?.includes('text/csv')) {
+        // Handle raw CSV data
+        csvData = req.body.toString();
+      } else if (req.body.csvData) {
+        // Handle JSON with csvData field
+        csvData = req.body.csvData;
+      } else {
         return res.status(400).json({ error: "Missing CSV data" });
       }
       
-      const records = parse(req.body.csvData, {
+      // Parse CSV data
+      const records = parse(csvData, {
         columns: true,
         skip_empty_lines: true
       });
       
-      // Validate each record using Zod schema
-      const employeeData = bulkImportEmployeeSchema.parse(records);
+      // Transform the records to match our schema
+      const transformedRecords = records.map((record: any) => {
+        // Extract values using case-insensitive field names
+        const getField = (possibleNames: string[]) => {
+          for (const name of possibleNames) {
+            for (const key of Object.keys(record)) {
+              if (key.toLowerCase() === name.toLowerCase()) {
+                return record[key];
+              }
+            }
+          }
+          return undefined;
+        };
+        
+        // Map CSV fields to our schema fields
+        const employeeCode = getField(['employeeCode', 'employee_code', 'employeecode', 'code', 'id', 'employee id', 'employee_id', 'employeeid']);
+        const firstName = getField(['firstName', 'first_name', 'firstname', 'fname', 'first name', 'name', 'firstname']);
+        const lastName = getField(['lastName', 'last_name', 'lastname', 'lname', 'last name', 'surname']);
+        const company = getField(['company', 'organization', 'org']);
+        const department = getField(['department', 'dept', 'division']);
+        const position = getField(['position', 'title', 'job title', 'job_title', 'jobtitle', 'role']);
+        const status = getField(['status', 'employee status', 'employee_status', 'employeestatus']);
+        
+        return {
+          employeeCode,
+          firstName, 
+          lastName,
+          department: department || 'Security',
+          position,
+          company: company || 'Butters',
+          status: status || 'Active'
+        };
+      });
+      
+      // Validate transformed records
+      const employeeData = bulkImportEmployeeSchema.parse(transformedRecords);
       
       // Bulk create or update employees
       const result = await storage.bulkCreateOrUpdateEmployees(employeeData);
@@ -291,10 +333,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(result);
     } catch (error) {
+      console.error('Import error:', error);
       if (error instanceof ZodError) {
         return res.status(400).json({ error: fromZodError(error).message });
       }
-      next(error);
+      return res.status(500).json({ error: `Failed to import employees: ${error.message}` });
     }
   });
 

@@ -160,13 +160,15 @@ export function getCsvParseOptions(): CSVParseOptions {
   return {
     headerMapping: {
       employeeCode: ["employee_code", "employeecode", "code", "id", "employee id", "employee_id", "employeeid"],
-      firstName: ["first_name", "firstname", "fname", "first name", "name"],
+      firstName: ["first_name", "firstname", "fname", "first name", "name", "firstname"],
       lastName: ["last_name", "lastname", "lname", "last name", "surname"],
       company: ["company", "organization", "org"],
       department: ["department", "dept", "division"],
       position: ["position", "title", "job title", "job_title", "jobtitle", "role"],
       status: ["status", "employee status", "employee_status", "employeestatus"]
     },
-    requiredFields: ["employeeCode", "firstName", "lastName", "company", "department", "position"]
+    // We'll default company and department on the server side
+    // Only require the basic employee information
+    requiredFields: ["employeeCode", "firstName", "lastName", "position"]
   };
 }

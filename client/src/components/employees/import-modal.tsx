@@ -39,21 +39,17 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       try {
-        // First parse the CSV file to validate its contents
-        const employees = await parseCSV(file, getCsvParseOptions());
+        // First parse the CSV file to validate its contents locally
+        // This will catch basic format errors before sending to server
+        await parseCSV(file, getCsvParseOptions());
         
-        // If parsing is successful, send the raw CSV to the server
-        const formData = new FormData();
-        formData.append("file", file);
-        
-        // Convert the file to a Blob for sending
+        // If local parsing is successful, send the raw CSV to the server
         const csvString = await file.text();
-        const csvBlob = new Blob([csvString], { type: 'text/csv' });
         
-        // Send the request
+        // Send the raw CSV data
         const response = await fetch("/api/employees/import", {
           method: "POST",
-          body: csvBlob,
+          body: csvString,
           headers: {
             "Content-Type": "text/csv",
           },
@@ -62,11 +58,12 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to import employees");
+          throw new Error(errorData.error || "Failed to import employees");
         }
         
         return await response.json();
       } catch (error: any) {
+        console.error("Import error:", error);
         if (error.details && Array.isArray(error.details)) {
           setParseErrors(error.details);
         }
