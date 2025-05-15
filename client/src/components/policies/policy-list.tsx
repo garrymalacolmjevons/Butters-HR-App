@@ -11,7 +11,7 @@ import {
   useReactTable,
   ColumnFiltersState,
 } from "@tanstack/react-table";
-import { ChevronDown, Search, Plus, FileEdit, Trash2 } from "lucide-react";
+import { ChevronDown, Search, Plus, FileEdit, Trash2, Upload, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,6 +51,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { PolicyPaymentList } from "./policy-payment-list";
+import { PolicyImportModal } from "./policy-import-modal";
 
 const columns: ColumnDef<InsurancePolicy & { employeeName: string }>[] = [
   {
@@ -149,6 +150,7 @@ export function PolicyList({ employeeId }: PolicyListProps) {
   const [editPolicy, setEditPolicy] = useState<InsurancePolicy | null>(null);
   const [selectedPolicy, setSelectedPolicy] = useState<InsurancePolicy | null>(null);
   const [showPayments, setShowPayments] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Fetch policies
   const { data: policies = [], isLoading } = useQuery({
@@ -247,10 +249,19 @@ export function PolicyList({ employeeId }: PolicyListProps) {
               Manage employee insurance policies and payments
             </CardDescription>
           </div>
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Policy
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowImportModal(true)}
+            >
+              <FileUp className="mr-2 h-4 w-4" />
+              Import Policies
+            </Button>
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Policy
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col space-y-4">
