@@ -61,6 +61,7 @@ export function LeaveForm({
   const [capturedImage, setCapturedImage] = useState<string | null>(defaultValues?.documentImage || null);
   const [showWebcam, setShowWebcam] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Fetch employees for the dropdown
   const { data: employees = [], isLoading: isLoadingEmployees } = useQuery<EmployeeWithFullName[]>({
@@ -139,6 +140,60 @@ export function LeaveForm({
     } else {
       setCapturedImage(null);
       form.setValue('documentImage', null);
+    }
+  };
+  
+  // Handle file upload from input
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      
+      reader.onload = async () => {
+        const base64data = reader.result as string;
+        
+        // Upload to server
+        const response = await fetch('/api/upload-document', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ imageData: base64data }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to upload document image');
+        }
+        
+        const data = await response.json();
+        setCapturedImage(data.url);
+        form.setValue('documentImage', data.url);
+        setIsUploading(false);
+      };
+      
+      reader.onerror = () => {
+        console.error('Error reading file');
+        alert('Failed to read the selected file. Please try again with a different file.');
+        setIsUploading(false);
+      };
+      
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('There was an error uploading your file. Please try again.');
+      setIsUploading(false);
+    }
+  };
+  
+  // Trigger file input click
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -349,11 +404,33 @@ export function LeaveForm({
                             <Button 
                               type="button" 
                               variant="outline" 
+                              onClick={triggerFileUpload}
+                              disabled={isUploading}
+                              className="flex items-center gap-2"
+                            >
+                              <Upload className="h-4 w-4" />
+                              <span>{capturedImage ? "Upload New Image" : "Upload Document"}</span>
+                            </Button>
+                            
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              style={{ display: 'none' }}
+                              accept="image/*"
+                              onChange={handleFileUpload}
+                            />
+                            
+                            <Button 
+                              type="button" 
+                              variant="outline" 
                               onClick={() => setShowWebcam(true)}
                               disabled={isUploading}
+                              className="flex items-center gap-2"
                             >
-                              {capturedImage ? "Retake Image" : "Capture Document"}
+                              <Camera className="h-4 w-4" />
+                              <span>{capturedImage ? "Retake with Webcam" : "Use Webcam"}</span>
                             </Button>
+                            
                             {capturedImage && (
                               <Button 
                                 type="button" 
@@ -363,10 +440,13 @@ export function LeaveForm({
                                   field.onChange(null);
                                 }}
                                 disabled={isUploading}
+                                className="flex items-center gap-2 text-destructive border-destructive hover:bg-destructive/10"
                               >
-                                Remove Image
+                                <X className="h-4 w-4" />
+                                <span>Remove Image</span>
                               </Button>
                             )}
+                            
                             {isUploading && (
                               <span className="text-sm text-muted-foreground">
                                 Uploading image...
@@ -376,7 +456,7 @@ export function LeaveForm({
                         </div>
                       )}
                       <FormDescription>
-                        Capture a photo of the signed leave document using your webcam.
+                        You can upload an image file or capture a photo of the signed leave document.
                       </FormDescription>
                       <FormMessage />
                     </div>
