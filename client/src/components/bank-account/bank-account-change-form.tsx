@@ -266,39 +266,110 @@ export function BankAccountChangeForm({
                 )}
               />
 
+              {/* Use details field for Bank Name */}
               <FormField
                 control={form.control}
                 name="details"
                 render={({ field }) => (
                   <FormItem className="col-span-2">
                     <FormLabel>Bank Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter bank name" {...field} value={field.value || ""} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Bank" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="ABSA">ABSA</SelectItem>
+                        <SelectItem value="Capitec">Capitec</SelectItem>
+                        <SelectItem value="FNB">First National Bank</SelectItem>
+                        <SelectItem value="Nedbank">Nedbank</SelectItem>
+                        <SelectItem value="Standard Bank">Standard Bank</SelectItem>
+                        <SelectItem value="African Bank">African Bank</SelectItem>
+                        <SelectItem value="TymeBank">TymeBank</SelectItem>
+                        <SelectItem value="Discovery Bank">Discovery Bank</SelectItem>
+                        <SelectItem value="Other">Other (Specify in Notes)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* Using the description field for structured account information */}
               <FormField
                 control={form.control}
                 name="description"
-                render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Account Details</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Enter account number, branch code, and account type" 
-                        {...field} 
-                        value={field.value || ""} 
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Include account number, branch code, and account type
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  // Parse existing value if present
+                  const existingValue = field.value ? JSON.parse(field.value) : {
+                    accountNumber: "",
+                    branchCode: "",
+                    accountType: ""
+                  };
+                  
+                  // Update the form value when any detail changes
+                  const updateValue = (key: string, value: string) => {
+                    const newValue = {
+                      ...existingValue,
+                      [key]: value
+                    };
+                    field.onChange(JSON.stringify(newValue));
+                  };
+                  
+                  return (
+                    <div className="col-span-2 space-y-4">
+                      <FormLabel className="block mb-2">Account Details</FormLabel>
+                      
+                      {/* Account Number */}
+                      <FormItem>
+                        <FormLabel className="text-sm">Account Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter account number" 
+                            value={existingValue.accountNumber || ""}
+                            onChange={(e) => updateValue("accountNumber", e.target.value)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                      
+                      {/* Branch Code */}
+                      <FormItem>
+                        <FormLabel className="text-sm">Branch Code</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter branch code"
+                            value={existingValue.branchCode || ""}
+                            onChange={(e) => updateValue("branchCode", e.target.value)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                      
+                      {/* Account Type */}
+                      <FormItem>
+                        <FormLabel className="text-sm">Account Type</FormLabel>
+                        <Select 
+                          value={existingValue.accountType || ""}
+                          onValueChange={(value) => updateValue("accountType", value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Account Type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Savings">Savings</SelectItem>
+                            <SelectItem value="Cheque">Cheque</SelectItem>
+                            <SelectItem value="Current">Current</SelectItem>
+                            <SelectItem value="Transmission">Transmission</SelectItem>
+                            <SelectItem value="Other">Other (Specify in Notes)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                      <FormMessage />
+                    </div>
+                  );
+                }}
               />
 
               <FormField
