@@ -251,7 +251,7 @@ export default function EarningsPage() {
     }
   };
 
-  const handleSaveEarning = (e: React.MouseEvent) => {
+  const handleSaveEarning = async (e: React.MouseEvent) => {
     e.preventDefault();
     
     // Validate form data
@@ -284,19 +284,27 @@ export default function EarningsPage() {
 
     // We've removed the development-only check to allow real API calls
 
-    // Submit the data - either create or update
-    if (isEditMode && earningIdToEdit) {
-      updateEarning.mutate({ id: earningIdToEdit, data: formData });
-    } else {
-      createEarning.mutate(formData);
-    }
-    
-    // Close the form dialog
-    setShowEarningForm(false);
-    
-    // Switch to the appropriate tab
-    if (currentEarningType) {
-      setActiveTab(currentEarningType);
+    try {
+      // Submit the data - either create or update
+      if (isEditMode && earningIdToEdit) {
+        await updateEarning.mutateAsync({ id: earningIdToEdit, data: formData });
+      } else {
+        await createEarning.mutateAsync(formData);
+      }
+      
+      // Force refetch all earning tables
+      await queryClient.invalidateQueries({ queryKey: ['/api/payroll-records'] });
+      
+      // Close the form dialog
+      setShowEarningForm(false);
+      
+      // Switch to the appropriate tab
+      if (currentEarningType) {
+        setActiveTab(currentEarningType);
+      }
+    } catch (error) {
+      console.error("Error saving earning:", error);
+      // Error is already handled by the mutation
     }
   };
 

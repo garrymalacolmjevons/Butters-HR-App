@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, Check, X, Pencil, Trash2, Filter } from "lucide-react";
+import { Loader2, Search, Check, X, Pencil, Trash2, Filter, RefreshCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,7 @@ export function EarningsTable({ recordType, onEditEarning }: EarningsTableProps)
   const [approvalFilter, setApprovalFilter] = useState<string | null>(null);
 
   // Fetch earnings
-  const { data: earnings = [], isLoading, refetch } = useQuery({
+  const { data: earnings = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['/api/payroll-records', { recordType }],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -61,7 +61,11 @@ export function EarningsTable({ recordType, onEditEarning }: EarningsTableProps)
         throw new Error('Failed to fetch earnings data');
       }
       return response.json();
-    }
+    },
+    // Refresh the data every 5 seconds to catch new entries
+    refetchInterval: 5000,
+    // Also refresh when the table regains focus
+    refetchOnWindowFocus: true
   });
 
   // Fetch employees for filter
@@ -216,6 +220,19 @@ export function EarningsTable({ recordType, onEditEarning }: EarningsTableProps)
             className={employeeFilter || dateFilter || approvalFilter ? "bg-blue-50 border-blue-200" : ""}
           >
             <Filter className={`h-4 w-4 ${employeeFilter || dateFilter || approvalFilter ? "text-blue-500" : ""}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            title="Refresh data"
+          >
+            {isRefetching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-4 w-4" />
+            )}
           </Button>
         </div>
         <div className="flex items-center space-x-2">
