@@ -78,10 +78,17 @@ export default function EarningsPage() {
     setShowEarningForm(true);
   };
 
-  const handleSaveEarning = () => {
-    // Here you would implement saving the form data
+  const handleSaveEarning = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // For now, we'll just show a success message without making a real API call
+    // In a real implementation, you would submit the form data to the backend here
+    
+    // Show success toast or notification (would need to implement this)
+    alert("Earning saved successfully! (This is a placeholder - no actual data was saved)");
+    
     // Close the form dialog
     setShowEarningForm(false);
+    
     // Switch to the appropriate tab
     if (currentEarningType) {
       setActiveTab(currentEarningType);
