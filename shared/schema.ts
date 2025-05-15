@@ -231,7 +231,7 @@ export const relations = {
       one: {
         exportRecords: {
           references: [users.id],
-          foreignKey: exportRecords.createdBy,
+          foreignKey: exportRecords.userId,
         },
       },
     },
