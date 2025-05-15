@@ -727,4 +727,81 @@ export class DatabaseStorage implements IStorage {
       payments
     };
   }
+  
+  // Get report data for payroll exports
+  async getReportData(options: {
+    startDate: Date;
+    endDate: Date;
+    recordType?: string;
+    includeUnapproved?: boolean;
+  }) {
+    const { startDate, endDate, recordType, includeUnapproved = false } = options;
+    
+    // Build query based on options
+    let query = db
+      .select({
+        ...payrollRecords,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
+      })
+      .from(payrollRecords)
+      .leftJoin(employees, eq(payrollRecords.employeeId, employees.id))
+      .where(and(
+        gte(payrollRecords.date, startDate),
+        lte(payrollRecords.date, endDate)
+      ));
+    
+    // Filter by record type if provided
+    if (recordType) {
+      if (recordType === 'earnings') {
+        // For 'earnings', include all earning types
+        const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance'];
+        query = query.where(inArray(payrollRecords.recordType, earningTypes));
+      } else if (recordType !== 'all') {
+        // For specific record type
+        query = query.where(eq(payrollRecords.recordType, recordType));
+      }
+    }
+    
+    // Include only approved records unless includeUnapproved is true
+    if (!includeUnapproved) {
+      query = query.where(eq(payrollRecords.approved, true));
+    }
+    
+    // Order by employee name and date
+    query = query.orderBy(
+      sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+      payrollRecords.date
+    );
+    
+    return await query;
+  }
+  
+  // Get export records
+  async getExportRecords(filter?: { userId?: number }) {
+    let query = db
+      .select({
+        ...exportRecords,
+        userName: sql`CONCAT(${users.firstName}, ' ', ${users.lastName})`
+      })
+      .from(exportRecords)
+      .leftJoin(users, eq(exportRecords.userId, users.id))
+      .orderBy(desc(exportRecords.createdAt));
+    
+    if (filter?.userId) {
+      query = query.where(eq(exportRecords.userId, filter.userId));
+    }
+    
+    return await query;
+  }
+  
+  // Create export record
+  async createExportRecord(exportRecord: InsertExportRecord): Promise<ExportRecord> {
+    const [record] = await db
+      .insert(exportRecords)
+      .values(exportRecord)
+      .returning();
+    
+    return record;
+  }
 }

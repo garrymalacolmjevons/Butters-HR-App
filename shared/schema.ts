@@ -95,11 +95,14 @@ export const recurringDeductions = pgTable("recurring_deductions", {
 // Export Records
 export const exportRecords = pgTable("export_records", {
   id: serial("id").primaryKey(),
-  reportName: text("report_name").notNull(),
-  month: timestamp("month").notNull(),
-  includeRecordTypes: text("include_record_types").array().notNull(),
-  format: text("format").default('xlsx'),
-  createdBy: integer("created_by").notNull(),
+  userId: integer("user_id").notNull(),
+  exportType: text("export_type").notNull(), // 'all', 'earnings', 'Overtime', etc.
+  fileUrl: text("file_url").notNull(),
+  fileFormat: text("file_format").default('csv'),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  includeUnapproved: boolean("include_unapproved").default(false),
+  recordCount: integer("record_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
