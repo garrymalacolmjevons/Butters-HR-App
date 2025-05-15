@@ -16,6 +16,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -122,29 +123,24 @@ export default function Sidebar() {
           label="Dashboard" 
         />
         <NavItem 
+          icon={UserCog} 
+          path="/staff" 
+          label="Staff" 
+        />
+        <NavItem 
           icon={Users} 
           path="/employees" 
           label="Employees" 
         />
         <NavItem 
-          icon={Calendar} 
-          path="/leave" 
-          label="Leave" 
+          icon={BadgeDollarSign} 
+          path="/earnings" 
+          label="Earnings" 
         />
         <NavItem 
           icon={TrendingDown} 
           path="/deductions" 
           label="Deductions" 
-        />
-        <NavItem 
-          icon={Clock} 
-          path="/overtime" 
-          label="Overtime" 
-        />
-        <NavItem 
-          icon={BadgeDollarSign} 
-          path="/allowances" 
-          label="Allowances" 
         />
         <NavItem 
           icon={FileSpreadsheet} 
