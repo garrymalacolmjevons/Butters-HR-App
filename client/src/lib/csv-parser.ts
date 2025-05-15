@@ -173,7 +173,9 @@ export function getCsvParseOptions(): CSVParseOptions {
       company: ["company", "organization", "org"],
       department: ["department", "dept", "division"],
       position: ["position", "title", "job title", "job_title", "jobtitle", "role"],
-      status: ["status", "employee status", "employee_status", "employeestatus"]
+      status: ["status", "employee status", "employee_status", "employeestatus"],
+      // Additional fields for the Butts IMport.csv
+      personalTitle: ["personaltitle", "personal_title", "title"]
     },
     // We'll default company and department on the server side
     // Only require the basic employee information

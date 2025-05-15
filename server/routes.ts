@@ -308,13 +308,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return '';
         };
         
+        console.log("Raw record from CSV:", record);
+        
+        // Handle case sensitivity in field names
+        const normalizedRecord: Record<string, string> = {};
+        Object.keys(record).forEach(key => {
+          normalizedRecord[key.toLowerCase()] = record[key];
+        });
+        
         // Map specifically for Butts IMport.csv format first
-        const employeeCode = record.employeeCode || '';
-        const firstName = record.firstName || '';
-        const lastName = record.lastName || '';
-        const position = record.position || '';
-        const department = record.department || 'Security';
-        const company = record.company || 'Butters';
+        const employeeCode = normalizedRecord.employeecode || '';
+        const firstName = normalizedRecord.firstname || '';
+        const lastName = normalizedRecord.lastname || '';
+        const position = normalizedRecord.position || '';
+        const department = normalizedRecord.department || 'Security';
+        const company = normalizedRecord.company || 'Butters';
         
         // If direct mapping didn't work, try with various field name options
         let data = {
