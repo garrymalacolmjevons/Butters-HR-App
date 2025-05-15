@@ -47,6 +47,8 @@ export default function ImportPage() {
         // If local parsing is successful, send the raw CSV to the server
         const csvString = await file.text();
         
+        console.log("Sending CSV data to server, first 200 chars:", csvString.substring(0, 200));
+        
         // Send the raw CSV data
         const response = await fetch("/api/employees/import", {
           method: "POST",
@@ -132,6 +134,7 @@ export default function ImportPage() {
       return;
     }
     
+    console.log("Selected file:", selectedFile.name, "size:", selectedFile.size);
     importMutation.mutate(selectedFile);
   };
 

@@ -33,6 +33,8 @@ export async function parseCSV(file: File, options: CSVParseOptions): Promise<Im
         const headerLine = lines[0].trim();
         const headers = headerLine.split(",").map(h => h.trim().toLowerCase());
         
+        console.log("CSV headers:", headers);
+        
         // Validate headers by checking if all required fields can be matched
         const missingFields: string[] = [];
         

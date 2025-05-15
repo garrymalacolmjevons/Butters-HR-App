@@ -284,7 +284,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const records = parse(csvData, {
         columns: true,
         skip_empty_lines: true,
-        trim: true
+        trim: true,
+        // Transform headers to lowercase
+        cast: true
       });
       
       console.log("Parsed records count:", records.length);
@@ -318,11 +320,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Map specifically for Butts IMport.csv format first
         const employeeCode = normalizedRecord.employeecode || '';
-        const firstName = normalizedRecord.firstname || '';
-        const lastName = normalizedRecord.lastname || '';
-        const position = normalizedRecord.position || '';
+        let firstName = normalizedRecord.firstname || '';
+        let lastName = normalizedRecord.lastname || '';
+        let position = normalizedRecord.position || '';
         const department = normalizedRecord.department || 'Security';
         const company = normalizedRecord.company || 'Butters';
+        
+        // Handle all caps names in the CSV (common in Butts IMport.csv)
+        if (firstName === firstName.toUpperCase()) {
+          firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+        }
+        
+        if (lastName === lastName.toUpperCase()) {
+          lastName = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
+        }
+        
+        // Trim position field which sometimes has trailing spaces
+        position = position.trim();
         
         // If direct mapping didn't work, try with various field name options
         let data = {
