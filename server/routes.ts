@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from "express";
@@ -26,6 +26,7 @@ import { fromZodError } from "zod-validation-error";
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
 import { upload, saveBase64Image, deleteImage, ensureUploadsDir } from './uploads';
+import { configureMicrosoftAuth } from './microsoft-auth';
 
 // Setup auth utilities
 const MemoryStoreSession = MemoryStore(session);
