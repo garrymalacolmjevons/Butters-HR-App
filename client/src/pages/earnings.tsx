@@ -160,6 +160,18 @@ export default function EarningsPage() {
       title: "Escort Allowance",
       recordType: "Escort Allowance",
       description: "Record escort duty payments for security personnel"
+    },
+    {
+      id: "cash-in-transit",
+      title: "Cash in Transit",
+      recordType: "Cash in Transit",
+      description: "Record cash in transit payments for employees"
+    },
+    {
+      id: "standby-shift",
+      title: "Standby Shift",
+      recordType: "Standby Shift",
+      description: "Record standby shift allowances for employees"
     }
   ];
 
