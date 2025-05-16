@@ -25,7 +25,7 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
-import { saveBase64Image, deleteImage, ensureUploadsDir } from './uploads';
+import { upload, saveBase64Image, deleteImage, ensureUploadsDir } from './uploads';
 
 // Setup auth utilities
 const MemoryStoreSession = MemoryStore(session);
@@ -103,6 +103,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     res.status(401).json({ error: "Authentication required" });
   };
+
+  // File upload route for handling documents
+  app.post("/api/uploads", isAuthenticated, upload.array('files', 10), async (req, res) => {
+    try {
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ message: "No files uploaded" });
+      }
+      
+      // Generate URLs for the uploaded files
+      const fileIds = req.files.map((file) => {
+        const relativePath = `/uploads/${file.filename}`;
+        return relativePath;
+      });
+      
+      // Log the upload
+      if (req.session.userId) {
+        await storage.createActivityLog({
+          userId: req.session.userId,
+          action: "File upload",
+          details: `Uploaded ${fileIds.length} document(s)`
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: `${fileIds.length} file(s) uploaded successfully`,
+        fileIds
+      });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      res.status(500).json({ message: "Failed to upload files" });
+    }
+  });
 
   // Auth routes
   app.post("/api/auth/login", (req, res, next) => {

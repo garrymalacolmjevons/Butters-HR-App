@@ -2,9 +2,26 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
+import multer from 'multer';
 
 const mkdir = promisify(fs.mkdir);
 const writeFile = promisify(fs.writeFile);
+
+// Configure multer storage
+export const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    await ensureUploadsDir();
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    // Generate a unique filename with original extension
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `${uuidv4()}${fileExtension}`);
+  }
+});
+
+// Create multer upload instance
+export const upload = multer({ storage });
 
 // Ensure uploads directory exists
 const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
