@@ -41,14 +41,34 @@ export const users = pgTable("users", {
 // Employees
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
-  employeeCode: text("employee_code").notNull().unique(),
+  employeeCode: text("employee_code").unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  idNumber: text("id_number"),
   department: departmentEnum("department").notNull(),
   position: text("position").notNull(),
   email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
   status: employeeStatusEnum("status").default('Active'),
-  dateJoined: timestamp("date_joined").defaultNow(),
+  dateJoined: date("date_joined"),
+  
+  // Financial information
+  baseSalary: real("base_salary").default(0),
+  taxNumber: text("tax_number"),
+  bankName: text("bank_name"),
+  bankAccount: text("bank_account"),
+  bankBranch: text("bank_branch"),
+  
+  // Additional benefits/extras
+  allowances: text("allowances"),
+  benefits: text("benefits"),
+  
+  // Documents
+  documentIds: text("document_ids").array(),
+  documentsNote: text("documents_note"),
+  
+  // VIP code tracking
   vipCode: text("vip_code"),
   vipCodeRequested: boolean("vip_code_requested").default(false),
   vipCodeRequestDate: timestamp("vip_code_request_date"),
@@ -189,12 +209,13 @@ export const policyExports = pgTable("policy_exports", {
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ 
-  id: true, 
+  id: true,
   dateJoined: true,
   vipCode: true,
   vipCodeRequested: true,
   vipCodeRequestDate: true,
-  vipCodeStatus: true 
+  vipCodeStatus: true,
+  documentIds: true // We'll handle this separately
 });
 export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({ id: true, createdAt: true });
 export const insertRecurringDeductionSchema = createInsertSchema(recurringDeductions).omit({ id: true, createdAt: true });
