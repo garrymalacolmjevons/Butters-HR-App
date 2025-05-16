@@ -62,7 +62,10 @@ export default function LoginPage() {
     onSuccess: (data) => {
       setIsLoginError(false);
       console.log("Login successful:", data);
-      window.location.href = "/dashboard"; // Force page reload to update auth state
+      // Use navigate instead of direct location change to prevent loops
+      setTimeout(() => {
+        window.location.replace("/dashboard");
+      }, 500);
     },
     onError: (error: Error) => {
       setIsLoginError(true);
@@ -75,8 +78,12 @@ export default function LoginPage() {
   });
 
   // Form submission handler
-  const onSubmit = (data: LoginFormValues) => {
-    loginMutation.mutate(data);
+  const onSubmit = async (data: LoginFormValues) => {
+    try {
+      await loginMutation.mutateAsync(data);
+    } catch (error) {
+      console.error("Login error:", error);
+    }
   };
 
   if (isAuthLoading) {
