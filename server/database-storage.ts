@@ -327,7 +327,11 @@ export class DatabaseStorage implements IStorage {
   // Activity Logs methods
   async getActivityLogs(limit: number = 10): Promise<(ActivityLog & { userName: string })[]> {
     const logs = await db.select({
-      ...activityLogs,
+      id: activityLogs.id,
+      userId: activityLogs.userId,
+      action: activityLogs.action,
+      details: activityLogs.details,
+      timestamp: activityLogs.timestamp,
       userName: users.fullName
     })
     .from(activityLogs)
