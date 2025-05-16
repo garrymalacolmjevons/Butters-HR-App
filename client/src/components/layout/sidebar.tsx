@@ -106,16 +106,10 @@ export default function Sidebar() {
     )}>
       <div className="p-3 flex justify-between items-center">
         <div className="flex items-center">
-          <img 
-            src="/logo.jpg" 
-            alt="Hi-Tec Security Logo" 
-            className={cn(
-              "transition-all duration-300",
-              expanded ? "h-10 w-auto" : "h-8 w-auto"
-            )}
-          />
-          {expanded && (
-            <div className="text-lg font-semibold ml-2 text-primary">Hi-Tec Security</div>
+          {expanded ? (
+            <div className="text-lg font-semibold text-primary">Hi-Tec Security</div>
+          ) : (
+            <div className="text-lg font-semibold text-primary">HTS</div>
           )}
         </div>
         <Button 

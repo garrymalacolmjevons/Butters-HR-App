@@ -114,6 +114,34 @@ export function AuthForm() {
             </Button>
           </form>
         </Form>
+        
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-300"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">Or continue with</span>
+            </div>
+          </div>
+          
+          <div className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => window.location.href = '/api/auth/microsoft'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+                <path fill="#f25022" d="M1 1h10v10H1z"/>
+                <path fill="#00a4ef" d="M1 12h10v10H1z"/>
+                <path fill="#7fba00" d="M12 1h10v10H12z"/>
+                <path fill="#ffb900" d="M12 12h10v10H12z"/>
+              </svg>
+              Sign in with Microsoft
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
