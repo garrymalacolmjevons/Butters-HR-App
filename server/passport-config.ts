@@ -43,6 +43,9 @@ export function configurePassport(app: Express) {
     const protocol = domain === 'localhost:5000' ? 'http' : 'https';
     const callbackURL = `${protocol}://${domain}/api/auth/microsoft/callback`;
     
+    // Use tenant-specific endpoint instead of common
+    const tenant = process.env.MICROSOFT_TENANT_ID;
+    
     passport.use(
       new MicrosoftStrategy(
         {
@@ -51,6 +54,9 @@ export function configurePassport(app: Express) {
           tenantID: process.env.MICROSOFT_TENANT_ID,
           callbackURL: callbackURL,
           scope: ['user.read', 'profile', 'email', 'openid'],
+          // Use organization-specific endpoint with tenant ID
+          authorizationURL: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
+          tokenURL: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
