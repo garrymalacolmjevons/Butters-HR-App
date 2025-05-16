@@ -58,13 +58,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }),
       resave: false,
       saveUninitialized: false,
-      secret: "keyboard cat", // In production, use environment variable
+      secret: process.env.SESSION_SECRET || "keyboard cat", 
     })
   );
 
   // Configure passport for authentication
   app.use(passport.initialize());
   app.use(passport.session());
+  
+  // Configure Microsoft authentication if credentials are available
+  configureMicrosoftAuth(app);
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
