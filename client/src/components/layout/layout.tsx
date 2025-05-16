@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import Sidebar from "./sidebar";
 import Header from "./header";
+import Footer from "./footer";
 import { useAuth } from "@/lib/auth";
 
 interface LayoutProps {
@@ -22,6 +23,7 @@ export default function Layout({ children }: LayoutProps) {
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
+        <Footer />
       </div>
     </div>
   );
