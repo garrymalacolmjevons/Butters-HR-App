@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,11 +55,13 @@ export default function LoginPage() {
 
   // Login mutation
   const loginMutation = useMutation({
-    mutationFn: (data: LoginFormValues) => {
-      return apiRequest("POST", "/api/auth/login", data);
+    mutationFn: async (data: LoginFormValues) => {
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsLoginError(false);
+      console.log("Login successful:", data);
       window.location.href = "/dashboard"; // Force page reload to update auth state
     },
     onError: (error: Error) => {
