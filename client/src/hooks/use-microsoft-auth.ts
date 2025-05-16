@@ -1,19 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
-import { useAuth } from '@/lib/auth';
+import { useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
 
 export function useMicrosoftAuth() {
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const { user, isLoading } = useAuth();
-  const [, navigate] = useLocation();
-
-  // Handle authentication state
-  useEffect(() => {
-    // If user is already authenticated, redirect to dashboard
-    if (user && !isLoading) {
-      navigate('/dashboard');
-    }
-  }, [user, isLoading, navigate]);
+  const auth = useAuth();
+  const { user, isLoading } = auth;
 
   // Function to initiate Microsoft login
   const loginWithMicrosoft = () => {
@@ -22,9 +13,9 @@ export function useMicrosoftAuth() {
   };
 
   // Function to log out
-  const logout = () => {
+  const logout = async () => {
     setIsRedirecting(true);
-    window.location.href = '/api/auth/logout';
+    await auth.logout();
   };
 
   return {

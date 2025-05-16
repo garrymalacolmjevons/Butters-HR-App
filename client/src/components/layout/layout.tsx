@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import Sidebar from "./sidebar";
 import Header from "./header";
 import Footer from "./footer";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 
 interface LayoutProps {
   children: ReactNode;

@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useContext, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "./queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
 
@@ -25,19 +25,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   const { isLoading } = useQuery({
-    queryKey: ["/api/auth/user"],
-    retry: false,
+    queryKey: ["/api/auth/me"],
     onSuccess: (data: any) => {
       setUser(data);
     },
     onError: () => {
       setUser(null);
     }
-  });
+  } as any);
 
   const loginMutation = useMutation({
     mutationFn: async ({ username, password }: { username: string; password: string }) => {
-      return apiRequest("/api/auth/login", "POST", { username, password });
+      return apiRequest("POST", "/api/auth/login", { username, password });
     },
     onSuccess: (data: any) => {
       setUser(data);
@@ -53,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
     },
-  });
+  } as any);
 
   const login = async (username: string, password: string) => {
     await loginMutation.mutateAsync({ username, password });
@@ -61,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await apiRequest("/api/auth/logout", "POST");
+      await apiRequest("POST", "/api/auth/logout");
       setUser(null);
       window.location.href = "/login";
     } catch (error) {
