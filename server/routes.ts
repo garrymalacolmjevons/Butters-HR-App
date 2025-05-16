@@ -27,6 +27,7 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
+import { Parser as Json2csvParser } from 'json2csv';
 import { upload, saveBase64Image, deleteImage, ensureUploadsDir } from './uploads';
 import { configureMicrosoftAuth } from './microsoft-auth';
 
@@ -706,8 +707,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await workbook.xlsx.writeFile(filePath);
       } else {
         // Generate CSV file
-        const { parse } = require('json2csv');
-        
         // Format data for CSV - customize these fields to match what Tracey needs
         const csvData = reportData.map((record: any) => ({
           'Employee Code': record.employeeCode || '',
@@ -721,8 +720,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'Approved': record.approved ? 'Yes' : 'No'
         }));
         
-        // Parse to CSV
-        const csv = parse(csvData);
+        // Parse to CSV using the imported Json2csvParser
+        const json2csvParser = new Json2csvParser();
+        const csv = json2csvParser.parse(csvData);
         
         // Write file
         fs.writeFileSync(filePath, csv);
