@@ -66,6 +66,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Configure Microsoft authentication
+  configureMicrosoftAuth(app);
+
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
