@@ -57,6 +57,9 @@ export function configurePassport(app: Express) {
           // Use organization-specific endpoint with tenant ID
           authorizationURL: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
           tokenURL: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
+          // Add a default reply URL for the Microsoft app
+          responseType: 'code',
+          responseMode: 'form_post',
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
