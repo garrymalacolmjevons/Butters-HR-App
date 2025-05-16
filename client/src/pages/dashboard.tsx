@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { SummaryCard } from "@/components/dashboard/summary-card";
-import { ActivityList } from "@/components/dashboard/activity-list";
-import { QuickActions } from "@/components/dashboard/quick-actions";
-import { Card, CardContent } from "@/components/ui/card";
-import { Users, FileText, BanknoteIcon, DollarSign } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, FileText, BanknoteIcon, DollarSign, Building, TrendingUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { queryClient } from "@/lib/queryClient";
@@ -13,13 +11,8 @@ export default function Dashboard() {
     queryKey: ["/api/dashboard"],
   });
 
-  const { data: activities = [], isLoading: isLoadingActivities } = useQuery({
-    queryKey: ["/api/activity-logs"],
-  });
-
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
   };
 
   return (
@@ -88,17 +81,56 @@ export default function Dashboard() {
         />
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card className="bg-white">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-neutral-700 mb-4">Recent Activity</h3>
-            <ActivityList activities={activities} isLoading={isLoadingActivities} />
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center">
+              <Building className="mr-2 h-5 w-5 text-amber-500" /> Departmental Overview
+            </CardTitle>
+            <CardDescription>Employee distribution by department</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Security</span>
+                <span className="font-medium">48</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Administration</span>
+                <span className="font-medium">10</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Operations</span>
+                <span className="font-medium">6</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
         
-        {/* Quick Actions */}
-        <QuickActions />
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center">
+              <TrendingUpIcon className="mr-2 h-5 w-5 text-green-600" /> Financial Summary
+            </CardTitle>
+            <CardDescription>Monthly financial overview</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Policy Premiums</span>
+                <span className="font-medium">{formatCurrency(dashboardData?.policyValueTotal || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Earnings Processed</span>
+                <span className="font-medium">{formatCurrency(dashboardData?.monthlyEarnings || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Deductions Applied</span>
+                <span className="font-medium">{formatCurrency(dashboardData?.totalDeductions || 0)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       <div className="flex justify-end mt-4">

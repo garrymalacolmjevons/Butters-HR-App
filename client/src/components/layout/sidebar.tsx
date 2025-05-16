@@ -18,6 +18,10 @@ import {
   ChevronRight,
   UserCog,
   Shield,
+  Activity,
+  FileText,
+  CreditCard,
+  UserCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -162,6 +166,11 @@ export default function Sidebar() {
           icon={FileSpreadsheet} 
           path="/reports" 
           label="Reports" 
+        />
+        <NavItem 
+          icon={Activity} 
+          path="/activity" 
+          label="Activity Logs" 
         />
       </div>
 

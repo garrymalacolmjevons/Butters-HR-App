@@ -180,6 +180,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ error: "Not authenticated" });
   });
 
+  // Staff Records route - combines Leave, Termination, and Bank Account Change records
+  app.get("/api/staff-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const { recordType } = req.query;
+      const records = await storage.getPayrollRecords({
+        recordType: recordType ? recordType as string : undefined,
+        types: ["Leave", "Termination", "Bank Account Change"]
+      });
+      res.json(records);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
   // Employee routes
   app.get("/api/employees", isAuthenticated, async (req, res, next) => {
     try {

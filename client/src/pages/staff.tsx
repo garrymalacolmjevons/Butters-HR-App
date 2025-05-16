@@ -1,34 +1,26 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/common/page-header";
 import { EmployeeWorkflow } from "@/components/employees/employee-workflow";
 import { TerminationForm } from "@/components/termination/termination-form";
 import { BankAccountChangeForm } from "@/components/bank-account/bank-account-change-form";
 import { LeaveForm } from "@/components/leave/leave-form";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CheckIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-
-import { 
-  UserPlusIcon, 
-  UserMinusIcon, 
-  BanknotesIcon, 
-  CalendarDaysIcon
-} from "@heroicons/react/24/outline";
+import { StaffActionDialog } from "@/components/staff/staff-action-dialog";
+import { StaffRecordsTable } from "@/components/staff/staff-records-table";
+import { Button } from "@/components/ui/button";
 
 export default function StaffPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("leave");
-  const [employeeWorkflowOpen, setEmployeeWorkflowOpen] = useState(false);
   
   // Form control states
+  const [employeeWorkflowOpen, setEmployeeWorkflowOpen] = useState(false);
   const [leaveFormOpen, setLeaveFormOpen] = useState(false);
   const [terminationFormOpen, setTerminationFormOpen] = useState(false);
   const [bankAccountFormOpen, setBankAccountFormOpen] = useState(false);
@@ -36,6 +28,24 @@ export default function StaffPage() {
   // Success dialog
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  
+  // Handle staff action selection
+  const handleStaffAction = (action: "add-employee" | "leave" | "termination" | "bank-account") => {
+    switch (action) {
+      case "add-employee":
+        setEmployeeWorkflowOpen(true);
+        break;
+      case "leave":
+        setLeaveFormOpen(true);
+        break;
+      case "termination":
+        setTerminationFormOpen(true);
+        break;
+      case "bank-account":
+        setBankAccountFormOpen(true);
+        break;
+    }
+  };
   
   // Create leave record mutation
   const createLeaveMutation = useMutation({
@@ -46,7 +56,7 @@ export default function StaffPage() {
         createdBy: user?.id
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       
       setSuccessMessage("Leave record has been created successfully");
@@ -80,6 +90,7 @@ export default function StaffPage() {
         createdBy: user?.id
       }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       
@@ -119,7 +130,7 @@ export default function StaffPage() {
       });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payroll-records"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-records"] });
       
       let message = "Bank account change has been recorded successfully";
       if (variables.approved) {
@@ -153,78 +164,11 @@ export default function StaffPage() {
       <PageHeader
         title="Staff Management"
         description="Manage staff-related functions including leave, terminations, bank account changes, and adding new employees"
-        actions={
-          <Button onClick={() => setEmployeeWorkflowOpen(true)} className="flex items-center">
-            <UserPlusIcon className="w-4 h-4 mr-2" />
-            Add New Employee
-          </Button>
-        }
+        actions={<StaffActionDialog onSelectAction={handleStaffAction} />}
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 w-full">
-          <TabsTrigger value="leave" className="flex items-center justify-center">
-            <CalendarDaysIcon className="w-4 h-4 mr-2" />
-            Leave
-          </TabsTrigger>
-          <TabsTrigger value="termination" className="flex items-center justify-center">
-            <UserMinusIcon className="w-4 h-4 mr-2" />
-            Termination
-          </TabsTrigger>
-          <TabsTrigger value="bank-account" className="flex items-center justify-center">
-            <BanknotesIcon className="w-4 h-4 mr-2" />
-            Bank Account
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="leave" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-medium">Leave Management</h3>
-              <Button onClick={() => setLeaveFormOpen(true)}>Capture Leave</Button>
-            </div>
-            <Alert>
-              <AlertTitle>How to use</AlertTitle>
-              <AlertDescription>
-                Click "Capture Leave" to record employee leave. You can specify the employee, leave type, 
-                start and end dates, and upload supporting documentation.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="termination" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-medium">Termination Management</h3>
-              <Button onClick={() => setTerminationFormOpen(true)}>Record Termination</Button>
-            </div>
-            <Alert>
-              <AlertTitle>How to use</AlertTitle>
-              <AlertDescription>
-                Click "Record Termination" to document an employee termination. You'll need to specify the
-                employee, termination date, reason for termination, and can upload supporting documentation.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="bank-account" className="mt-6">
-          <div className="bg-card rounded-lg border shadow p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-medium">Bank Account Changes</h3>
-              <Button onClick={() => setBankAccountFormOpen(true)}>Change Bank Account</Button>
-            </div>
-            <Alert>
-              <AlertTitle>How to use</AlertTitle>
-              <AlertDescription>
-                Click "Change Bank Account" to record a change in employee banking details. You must upload proof
-                of the bank account. When approved, a notification will be sent to Sherry for processing.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Staff Records Table */}
+      <StaffRecordsTable />
 
       {/* Employee Workflow */}
       <EmployeeWorkflow 

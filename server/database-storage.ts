@@ -188,13 +188,15 @@ export class DatabaseStorage implements IStorage {
     status?: string;
     startDate?: Date;
     endDate?: Date;
+    types?: string[]; // Array of record types to include
   }): Promise<(PayrollRecord & { employeeName: string })[]> {
     const payrollWithEmployeeQuery = db.select({
       ...payrollRecords,
       employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`
     })
     .from(payrollRecords)
-    .leftJoin(employees, eq(payrollRecords.employeeId, employees.id));
+    .leftJoin(employees, eq(payrollRecords.employeeId, employees.id))
+    .orderBy(desc(payrollRecords.createdAt));
     
     if (filter) {
       const conditions = [];
@@ -203,8 +205,11 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(payrollRecords.employeeId, filter.employeeId));
       }
       
+      // Handle single record type or multiple record types
       if (filter.recordType) {
         conditions.push(eq(payrollRecords.recordType, filter.recordType));
+      } else if (filter.types && filter.types.length > 0) {
+        conditions.push(inArray(payrollRecords.recordType, filter.types));
       }
       
       if (filter.status) {
