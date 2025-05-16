@@ -26,7 +26,7 @@ import { fromZodError } from "zod-validation-error";
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
 import { upload, saveBase64Image, deleteImage, ensureUploadsDir } from './uploads';
-import { configurePassport } from './passport-config';
+import { configureMicrosoftAuth } from './microsoft-auth';
 
 // Setup auth utilities
 const MemoryStoreSession = MemoryStore(session);
@@ -58,16 +58,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }),
       resave: false,
       saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "keyboard cat", 
+      secret: "keyboard cat", // In production, use environment variable
     })
   );
 
   // Configure passport for authentication
   app.use(passport.initialize());
   app.use(passport.session());
-  
-  // Configure all passport strategies including Microsoft SSO
-  configurePassport(app);
+
+  passport.use(
+    new LocalStrategy(async (username, password, done) => {
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user) {
+          return done(null, false, { message: "Incorrect username" });
+        }
+        if (user.password !== password) {
+          // This is insecure. In production, use bcrypt or similar
+          return done(null, false, { message: "Incorrect password" });
+        }
+        return done(null, user);
+      } catch (err) {
+        return done(err);
+      }
+    })
+  );
+
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id: number, done) => {
+    try {
+      const user = await storage.getUser(id);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+  });
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: Request, res: Response, next: Function) => {

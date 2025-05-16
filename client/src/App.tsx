@@ -16,7 +16,7 @@ import ImportPage from "@/pages/import";
 import StaffPage from "@/pages/staff";
 import Policies from "@/pages/policies";
 import EarningsPage from "@/pages/earnings";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();

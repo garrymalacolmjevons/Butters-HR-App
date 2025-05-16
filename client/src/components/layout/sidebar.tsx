@@ -23,13 +23,12 @@ import {
   CreditCard,
   UserCheck,
 } from "lucide-react";
-import { useMicrosoftAuth } from "@/hooks/use-microsoft-auth";
+import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { UserAccountNav } from "@/components/auth/user-account-nav";
 
 export default function Sidebar() {
   const [location] = useLocation();
-  const { logout } = useMicrosoftAuth();
+  const { logout } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const isMobile = useIsMobile();
 
