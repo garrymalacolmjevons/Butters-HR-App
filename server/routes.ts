@@ -6,6 +6,8 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
+import * as fs from 'fs';
+
 import path from "path";
 import { 
   userLoginSchema,
@@ -671,8 +673,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const publicUrl = `/exports/${fileName}.${format}`;
       
       // Ensure the exports directory exists
-      const fs = require('fs');
-      const path = require('path');
       if (!fs.existsSync('public/exports')) {
         fs.mkdirSync('public/exports', { recursive: true });
       }
