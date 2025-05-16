@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, X, RefreshCw, Filter, CheckIcon, CalendarDays, UserMinus, CreditCard } from "lucide-react";
+import { Pencil, Trash2, X, RefreshCw, Filter, CheckIcon, CalendarDays, UserMinus, CreditCard, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -209,21 +210,82 @@ export default function StaffPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Staff Management</h1>
-          <p className="text-muted-foreground">
-            Manage staff-related functions including leave, terminations, bank account changes, and adding new employees
-          </p>
-        </div>
-        <Button onClick={handleAddRecord}>
-          {activeTab === "leave" ? "Record Leave" : 
-           activeTab === "termination" ? "Record Termination" : 
-           activeTab === "bank-account" ? "Change Bank Account" : 
-           activeTab === "add-employee" ? "Add New Employee" : 
-           "Add Record"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Staff Management"
+        description="Manage staff-related functions including leave, terminations, bank account changes, and adding new employees"
+        actions={
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>Staff Action</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Staff Actions</DialogTitle>
+                <DialogDescription>
+                  Select the staff-related action you want to perform
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-1 gap-4 py-4">
+                <Button 
+                  variant="outline" 
+                  className="justify-start text-left font-normal h-auto py-3"
+                  onClick={() => {
+                    setLeaveFormOpen(true);
+                  }}
+                >
+                  <CalendarDays className="mr-2 h-4 w-4 text-blue-500" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">Record Leave</span>
+                    <span className="text-sm text-muted-foreground">Record employee leave days</span>
+                  </div>
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="justify-start text-left font-normal h-auto py-3"
+                  onClick={() => {
+                    setTerminationFormOpen(true);
+                  }}
+                >
+                  <UserMinus className="mr-2 h-4 w-4 text-red-500" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">Record Termination</span>
+                    <span className="text-sm text-muted-foreground">Process employee termination</span>
+                  </div>
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="justify-start text-left font-normal h-auto py-3"
+                  onClick={() => {
+                    setBankAccountFormOpen(true);
+                  }}
+                >
+                  <CreditCard className="mr-2 h-4 w-4 text-green-500" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">Change Bank Account</span>
+                    <span className="text-sm text-muted-foreground">Update employee bank details</span>
+                  </div>
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="justify-start text-left font-normal h-auto py-3"
+                  onClick={() => {
+                    setEmployeeWorkflowOpen(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4 text-amber-500" />
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">Add New Employee</span>
+                    <span className="text-sm text-muted-foreground">Add a new employee to the system</span>
+                  </div>
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 w-full mb-6">
