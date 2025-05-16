@@ -43,7 +43,9 @@ export default function StaffPage() {
     queryFn: async () => {
       const recordType = activeTab === "all" ? undefined : 
                         activeTab === "leave" ? "Leave" : 
-                        activeTab === "termination" ? "Termination" : "Bank Account Change";
+                        activeTab === "termination" ? "Termination" : 
+                        activeTab === "bank-account" ? "Bank Account Change" :
+                        activeTab === "new-staff" ? "New Staff" : undefined;
       
       const response = await fetch(`/api/staff-records${recordType ? `?recordType=${recordType}` : ''}`);
       if (!response.ok) throw new Error('Failed to fetch records');
@@ -292,7 +294,7 @@ export default function StaffPage() {
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="termination">Termination</TabsTrigger>
           <TabsTrigger value="bank-account">Bank Account</TabsTrigger>
-          <TabsTrigger value="add-employee">Add Employee</TabsTrigger>
+          <TabsTrigger value="new-staff">New Staff</TabsTrigger>
         </TabsList>
 
         <div className="flex items-center mb-4 space-x-2">
