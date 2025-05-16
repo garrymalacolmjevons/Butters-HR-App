@@ -56,7 +56,7 @@ export default function LoginPage() {
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: (data: LoginFormValues) => {
-      return apiRequest("/api/auth/login", "POST", data);
+      return apiRequest("POST", "/api/auth/login", data);
     },
     onSuccess: () => {
       setIsLoginError(false);
