@@ -41,6 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 
 // Extend the employee schema with validation
@@ -178,59 +179,26 @@ export function EmployeeWorkflow({
     }
   });
 
-  // Handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    try {
-      // Create FormData
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
-      }
-
-      // Upload files to server
-      const response = await fetch('/api/uploads', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('File upload failed');
-      }
-
-      const result = await response.json();
-      
-      // Add uploaded files to the documents array
-      const newDocs = result.fileIds.map((fileId: string, index: number) => ({
-        id: fileId,
-        name: files[index].name,
-      }));
-      
-      setUploadedDocs([...uploadedDocs, ...newDocs]);
-      
-      // Update form data with document IDs
-      const currentDocIds = form.getValues('documentIds') || [];
-      form.setValue('documentIds', [...currentDocIds, ...result.fileIds]);
-      
-      toast({
-        title: "Documents Uploaded",
-        description: `${files.length} document(s) uploaded successfully.`,
-      });
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        variant: "destructive",
-        title: "Upload Failed",
-        description: "Failed to upload documents. Please try again.",
-      });
-    }
+  // Handle file upload with the new FileUpload component
+  const handleFileUploadComplete = (fileIds: string[]) => {
+    if (!fileIds.length) return;
     
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    // Add uploaded files to the documents array with generic names
+    const newDocs = fileIds.map((fileId, index) => ({
+      id: fileId,
+      name: `Document ${uploadedDocs.length + index + 1}`,
+    }));
+    
+    setUploadedDocs([...uploadedDocs, ...newDocs]);
+    
+    // Update form data with document IDs
+    const currentDocIds = form.getValues('documentIds') || [];
+    form.setValue('documentIds', [...currentDocIds, ...fileIds]);
+    
+    toast({
+      title: "Documents Uploaded",
+      description: `${fileIds.length} document(s) uploaded successfully.`,
+    });
   };
 
   // Handle document removal
@@ -739,31 +707,22 @@ export function EmployeeWorkflow({
                 {/* Documents Tab */}
                 <TabsContent value="documents" className="space-y-4">
                   <div className="grid grid-cols-1 gap-4">
-                    {/* Document upload */}
+                    {/* Advanced Document upload with new component */}
                     <div className="border rounded-lg p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-medium">Supporting Documents</h3>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleFileUpload}
-                          multiple
-                          className="hidden"
-                        />
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload
-                        </Button>
-                      </div>
+                      <h3 className="text-sm font-medium">Supporting Documents</h3>
+                      
+                      {/* File Upload Component */}
+                      <FileUpload 
+                        onUploadComplete={handleFileUploadComplete}
+                        label="Upload Employee Documents"
+                        maxFiles={5}
+                        acceptedFileTypes=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      />
                       
                       {/* Document list */}
                       {uploadedDocs.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="space-y-2 mt-4">
+                          <h3 className="text-sm font-medium">Uploaded Documents</h3>
                           {uploadedDocs.map((doc) => (
                             <div key={doc.id} className="flex items-center justify-between bg-muted p-2 rounded">
                               <span className="text-sm truncate max-w-[250px]">{doc.name}</span>
