@@ -80,9 +80,31 @@ export default function LoginPage() {
   // Form submission handler
   const onSubmit = async (data: LoginFormValues) => {
     try {
-      await loginMutation.mutateAsync(data);
+      // Direct form submission to server
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+      
+      // Success - redirect to dashboard
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error("Login error:", error);
+      setIsLoginError(true);
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error instanceof Error ? error.message : "Invalid username or password",
+      });
     }
   };
 
