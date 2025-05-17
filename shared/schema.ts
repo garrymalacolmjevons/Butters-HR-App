@@ -168,6 +168,17 @@ export const overtimeRates = pgTable("overtime_rates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Earnings Rates
+export const earningsRates = pgTable("earnings_rates", {
+  id: serial("id").primaryKey(),
+  earningType: text("earning_type").notNull(),  // Will store values like 'Special Shift', 'Standby Shift', etc.
+  rate: real("rate").notNull(),
+  description: text("description"),
+  active: boolean("active").default(true),
+  updatedBy: integer("updated_by").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insurance Policies
 export const insurancePolicies = pgTable("insurance_policies", {
   id: serial("id").primaryKey(),
@@ -228,6 +239,7 @@ export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({
 export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
 export const insertOvertimeRateSchema = createInsertSchema(overtimeRates).omit({ id: true, updatedAt: true });
+export const insertEarningsRateSchema = createInsertSchema(earningsRates).omit({ id: true, updatedAt: true });
 export const insertInsurancePolicySchema = createInsertSchema(insurancePolicies).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPolicyPaymentSchema = createInsertSchema(policyPayments).omit({ id: true, createdAt: true });
 export const insertPolicyExportSchema = createInsertSchema(policyExports).omit({ id: true, createdAt: true });
