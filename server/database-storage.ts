@@ -456,39 +456,55 @@ export class DatabaseStorage implements IStorage {
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     
     // Get sum of all earnings for the current month
-    // Using the actual enum values from recordTypeEnum
-    const earningTypes = ['Overtime', 'Special Shift', 'Standby Shift', 'Cash in Transit', 'Camera Allowance'];
-    const [earningsResult] = await db.select({
-      total: sql<number>`sum(${payrollRecords.amount})`
-    })
-    .from(payrollRecords)
-    .where(
-      and(
-        inArray(payrollRecords.recordType, earningTypes as any[]),
-        gte(payrollRecords.date, startOfMonth),
-        lte(payrollRecords.date, endOfMonth)
-      )
-    );
+    // Using the actual enum values from recordTypeEnum, ensuring they match exactly
+    const earningTypes = ['Overtime', 'Special Shift', 'Standby Shift', 'Camera Allowance'];
+    
+    let totalEarnings = 0;
+    try {
+      const [earningsResult] = await db.select({
+        total: sql<number>`sum(${payrollRecords.amount})`
+      })
+      .from(payrollRecords)
+      .where(
+        and(
+          inArray(payrollRecords.recordType, earningTypes as any[]),
+          gte(payrollRecords.date, startOfMonth),
+          lte(payrollRecords.date, endOfMonth)
+        )
+      );
+      totalEarnings = earningsResult?.total || 0;
+    } catch (error) {
+      console.error("Error calculating earnings:", error);
+      // Continue execution even if this part fails
+    }
     
     // Get sum of all deductions for the current month
     const deductionTypes = ['Deduction', 'Loan', 'Advance'];
-    const [deductionsResult] = await db.select({
-      total: sql<number>`sum(${payrollRecords.amount})`
-    })
-    .from(payrollRecords)
-    .where(
-      and(
-        inArray(payrollRecords.recordType, deductionTypes),
-        gte(payrollRecords.date, startOfMonth),
-        lte(payrollRecords.date, endOfMonth)
-      )
-    );
+    
+    let totalDeductions = 0;
+    try {
+      const [deductionsResult] = await db.select({
+        total: sql<number>`sum(${payrollRecords.amount})`
+      })
+      .from(payrollRecords)
+      .where(
+        and(
+          inArray(payrollRecords.recordType, deductionTypes),
+          gte(payrollRecords.date, startOfMonth),
+          lte(payrollRecords.date, endOfMonth)
+        )
+      );
+      totalDeductions = deductionsResult?.total || 0;
+    } catch (error) {
+      console.error("Error calculating deductions:", error);
+      // Continue execution even if this part fails
+    }
     
     return {
       employeeCount: Number(employeeResult?.count || 0),
       policyValueTotal: Number(policyValueResult?.total || 0),
-      monthlyEarnings: Number(earningsResult?.total || 0),
-      totalDeductions: Number(deductionsResult?.total || 0)
+      monthlyEarnings: Number(totalEarnings || 0),
+      totalDeductions: Number(totalDeductions || 0)
     };
   }
 
