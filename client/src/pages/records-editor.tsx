@@ -117,7 +117,7 @@ const RecordsEditor = () => {
         record.employeeName || "",
         record.employeeCode || "",
         record.recordType,
-        `"${record.details.replace(/"/g, '""')}"`, // Escape quotes in details
+        `"${(record.details || '').replace(/"/g, '""')}"`, // Escape quotes in details
         record.amount !== null ? record.amount : "",
         record.status,
         record.createdAt
