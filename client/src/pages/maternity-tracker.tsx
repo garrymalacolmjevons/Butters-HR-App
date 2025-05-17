@@ -53,10 +53,21 @@ export default function MaternityTracker() {
       return;
     }
 
+    // Prepare data with proper types for submission
+    const recordData = {
+      ...editingRecord,
+      employeeId: Number(editingRecord.employeeId),
+      fromDate: editingRecord.fromDate,
+      toDate: editingRecord.toDate
+    };
+
     try {
       const response = await fetch('/api/maternity-records', {
         method: 'POST',
-        body: JSON.stringify(editingRecord),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData),
       });
 
       if (!response.ok) {
@@ -90,10 +101,21 @@ export default function MaternityTracker() {
       return;
     }
 
+    // Prepare data with proper types for submission
+    const recordData = {
+      ...editingRecord,
+      employeeId: Number(editingRecord.employeeId),
+      fromDate: editingRecord.fromDate,
+      toDate: editingRecord.toDate
+    };
+
     try {
       const response = await fetch(`/api/maternity-records/${editingRecord.id}`, {
         method: 'PATCH',
-        body: JSON.stringify(editingRecord),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData),
       });
 
       if (!response.ok) {

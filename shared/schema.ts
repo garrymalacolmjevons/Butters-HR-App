@@ -29,6 +29,7 @@ export const overtimeTypeEnum = pgEnum('overtime_type', ['Weekday', 'Saturday', 
 export const userRoleEnum = pgEnum('user_role', ['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']);
 export const insuranceCompanyEnum = pgEnum('insurance_company', ['Sanlam Sky', 'Avbob', 'Old Mutual', 'Provident Fund']);
 export const policyStatusEnum = pgEnum('policy_status', ['Active', 'Cancelled', 'Pending', 'Suspended']);
+export const garnisheeStatusEnum = pgEnum('garnishee_status', ['Active', 'Completed', 'Cancelled', 'Suspended']);
 
 // Users (HR staff)
 export const users = pgTable("users", {
