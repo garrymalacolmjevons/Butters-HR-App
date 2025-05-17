@@ -17,6 +17,7 @@ import StaffPage from "@/pages/staff";
 import Policies from "@/pages/policies";
 import EarningsPage from "@/pages/earnings";
 import ActivityLogPage from "@/pages/activity";
+import RecordsEditorPage from "@/pages/records-editor";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -131,6 +132,15 @@ function Router() {
         <ProtectedRoute component={() => (
           <Layout>
             <ActivityLogPage />
+          </Layout>
+        )} />
+      </Route>
+      
+      {/* Records editor with spreadsheet-like interface */}
+      <Route path="/records-editor">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <RecordsEditorPage />
           </Layout>
         )} />
       </Route>
