@@ -452,3 +452,58 @@ export const maternityRecordsRelations = defineRelations(maternityRecords, ({ on
 export const insertMaternityRecordSchema = createInsertSchema(maternityRecords).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMaternityRecord = z.infer<typeof insertMaternityRecordSchema>;
 export type MaternityRecord = typeof maternityRecords.$inferSelect;
+
+// Staff Garnishee Orders
+export const staffGarnishees = pgTable("staff_garnishees", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id),
+  caseNumber: varchar("case_number", { length: 100 }),
+  creditor: varchar("creditor", { length: 255 }).notNull(),
+  monthlyAmount: real("monthly_amount").notNull(),
+  totalAmount: real("total_amount").notNull(),
+  balance: real("balance").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  status: garnisheeStatusEnum("status").default('Active'),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const staffGarnisheesRelations = defineRelations(staffGarnishees, ({ one }) => ({
+  employee: one(employees, {
+    fields: [staffGarnishees.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+// Garnishee Payments
+export const garnisheePayments = pgTable("garnishee_payments", {
+  id: serial("id").primaryKey(),
+  garnisheeId: integer("garnishee_id").notNull().references(() => staffGarnishees.id),
+  paymentDate: date("payment_date").notNull(),
+  amount: real("amount").notNull(),
+  reference: varchar("reference", { length: 100 }),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const garnisheePaymentsRelations = defineRelations(garnisheePayments, ({ one }) => ({
+  garnishee: one(staffGarnishees, {
+    fields: [garnisheePayments.garnisheeId],
+    references: [staffGarnishees.id],
+  }),
+  user: one(users, {
+    fields: [garnisheePayments.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const insertStaffGarnisheeSchema = createInsertSchema(staffGarnishees).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGarnisheePaymentSchema = createInsertSchema(garnisheePayments).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type StaffGarnishee = typeof staffGarnishees.$inferSelect;
+export type InsertStaffGarnishee = z.infer<typeof insertStaffGarnisheeSchema>;
+export type GarnisheePayment = typeof garnisheePayments.$inferSelect;
+export type InsertGarnisheePayment = z.infer<typeof insertGarnisheePaymentSchema>;

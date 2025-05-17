@@ -1004,4 +1004,141 @@ export class DatabaseStorage implements IStorage {
     
     return result.rowCount > 0;
   }
+
+  // Staff Garnishee methods
+  async getStaffGarnishees(filter?: { 
+    employeeId?: number,
+    status?: string
+  }): Promise<(StaffGarnishee & { employeeName: string, employeeCode: string | null })[]> {
+    let query = db
+      .select({
+        ...staffGarnishees,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
+      })
+      .from(staffGarnishees)
+      .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id));
+    
+    if (filter?.employeeId) {
+      query = query.where(eq(staffGarnishees.employeeId, filter.employeeId));
+    }
+    
+    if (filter?.status) {
+      query = query.where(eq(staffGarnishees.status, filter.status as any));
+    }
+    
+    const garnishees = await query.orderBy(desc(staffGarnishees.createdAt));
+    return garnishees;
+  }
+  
+  async getStaffGarnishee(id: number): Promise<(StaffGarnishee & { employeeName: string, employeeCode: string | null }) | undefined> {
+    const [garnishee] = await db
+      .select({
+        ...staffGarnishees,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
+      })
+      .from(staffGarnishees)
+      .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id))
+      .where(eq(staffGarnishees.id, id));
+    
+    return garnishee;
+  }
+  
+  async createStaffGarnishee(garnishee: InsertStaffGarnishee): Promise<StaffGarnishee> {
+    const [result] = await db
+      .insert(staffGarnishees)
+      .values(garnishee)
+      .returning();
+    
+    return result;
+  }
+  
+  async updateStaffGarnishee(id: number, garnishee: Partial<InsertStaffGarnishee>): Promise<StaffGarnishee | undefined> {
+    const [result] = await db
+      .update(staffGarnishees)
+      .set({
+        ...garnishee,
+        updatedAt: new Date()
+      })
+      .where(eq(staffGarnishees.id, id))
+      .returning();
+    
+    return result;
+  }
+  
+  async deleteStaffGarnishee(id: number): Promise<boolean> {
+    const result = await db
+      .delete(staffGarnishees)
+      .where(eq(staffGarnishees.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  async getGarnisheePayments(garnisheeId: number): Promise<GarnisheePayment[]> {
+    const payments = await db
+      .select()
+      .from(garnisheePayments)
+      .where(eq(garnisheePayments.garnisheeId, garnisheeId))
+      .orderBy(desc(garnisheePayments.paymentDate));
+    
+    return payments;
+  }
+  
+  async createGarnisheePayment(payment: InsertGarnisheePayment): Promise<GarnisheePayment> {
+    const [result] = await db
+      .insert(garnisheePayments)
+      .values(payment)
+      .returning();
+    
+    return result;
+  }
+  
+  async updateGarnisheePayment(id: number, payment: Partial<InsertGarnisheePayment>): Promise<GarnisheePayment | undefined> {
+    const [result] = await db
+      .update(garnisheePayments)
+      .set({
+        ...payment,
+        updatedAt: new Date()
+      })
+      .where(eq(garnisheePayments.id, id))
+      .returning();
+    
+    return result;
+  }
+  
+  async deleteGarnisheePayment(id: number): Promise<boolean> {
+    const result = await db
+      .delete(garnisheePayments)
+      .where(eq(garnisheePayments.id, id));
+    
+    return result.rowCount > 0;
+  }
+  
+  async getGarnisheeDashboardData(): Promise<{
+    activeOrders: number;
+    totalOutstanding: number;
+    monthlyPayments: number;
+  }> {
+    const [activeCount] = await db
+      .select({ count: count() })
+      .from(staffGarnishees)
+      .where(eq(staffGarnishees.status, 'Active'));
+    
+    const [totalOutstanding] = await db
+      .select({ sum: sql<number>`SUM(${staffGarnishees.balance})` })
+      .from(staffGarnishees)
+      .where(eq(staffGarnishees.status, 'Active'));
+    
+    const [monthlyTotal] = await db
+      .select({ sum: sql<number>`SUM(${staffGarnishees.monthlyAmount})` })
+      .from(staffGarnishees)
+      .where(eq(staffGarnishees.status, 'Active'));
+    
+    return {
+      activeOrders: activeCount?.count || 0,
+      totalOutstanding: totalOutstanding?.sum || 0,
+      monthlyPayments: monthlyTotal?.sum || 0
+    };
+  }
 }
