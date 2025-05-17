@@ -39,6 +39,7 @@ interface RecordData {
   status: string;
   documentImage?: string;
   createdAt: string;
+  hasBeenExported?: boolean;
 }
 
 interface EditableCell {

@@ -339,6 +339,28 @@ export class DatabaseStorage implements IStorage {
       const createdAt = new Date().toISOString();
       const month = exportRecord.startDate ? exportRecord.startDate.toISOString() : new Date().toISOString();
       
+      // If we have exported record IDs, store them in a separate table for tracking
+      if (exportRecord.exportedRecordIds && exportRecord.exportedRecordIds.length > 0) {
+        try {
+          // Create a raw SQL query to insert the exported record IDs
+          const valuesString = exportRecord.exportedRecordIds.map(recordId => 
+            `(${recordId}, ${exportRecord.userId}, '${createdAt}')`
+          ).join(', ');
+          
+          // This table will track which records have been exported
+          const trackingQuery = `
+            INSERT INTO exported_record_tracking (record_id, exported_by, exported_at)
+            VALUES ${valuesString}
+            ON CONFLICT (record_id) DO UPDATE
+            SET exported_at = '${createdAt}', exported_by = ${exportRecord.userId}
+          `;
+          
+          await db.execute(trackingQuery);
+        } catch (trackingError) {
+          console.error('Error tracking exported records:', trackingError);
+        }
+      }
+      
       // We'll return a minimal valid object to avoid breaking the flow
       // since we're having issues with the database schema
       return {
@@ -362,6 +384,21 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(),
         createdBy: exportRecord.userId
       } as ExportRecord;
+    }
+  }
+  
+  // Check if records have been exported
+  async getExportedRecordIds(): Promise<number[]> {
+    try {
+      const query = `
+        SELECT DISTINCT record_id
+        FROM exported_record_tracking
+      `;
+      const result = await db.execute(query);
+      return result.rows.map((row: any) => row.record_id);
+    } catch (error) {
+      console.error('Error fetching exported record IDs:', error);
+      return [];
     }
   }
 

@@ -462,7 +462,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (endDate) filter.endDate = new Date(endDate as string);
       
       const records = await storage.getPayrollRecords(filter);
-      res.json(records);
+      
+      // Get list of exported record IDs
+      const exportedRecordIds = await storage.getExportedRecordIds();
+      
+      // Mark records that have been exported
+      const recordsWithExportStatus = records.map(record => ({
+        ...record,
+        hasBeenExported: exportedRecordIds.includes(record.id)
+      }));
+      
+      res.json(recordsWithExportStatus);
     } catch (error) {
       next(error);
     }
