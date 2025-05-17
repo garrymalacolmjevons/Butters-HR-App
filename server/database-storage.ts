@@ -335,14 +335,15 @@ export class DatabaseStorage implements IStorage {
       const reportName = `${exportRecord.exportType} Report`;
       const fileFormat = exportRecord.fileFormat || 'csv';
       const createdAt = new Date().toISOString();
-      const month = exportRecord.startDate.toISOString();
+      const month = exportRecord.startDate ? exportRecord.startDate.toISOString() : new Date().toISOString();
       
+      // Include the created_by field that's required by the database
       const query = `
         INSERT INTO export_records 
-        (user_id, export_type, file_url, file_format, created_at, report_name, month) 
+        (user_id, export_type, file_url, file_format, created_at, report_name, month, created_by) 
         VALUES 
         (${exportRecord.userId}, '${exportRecord.exportType}', '${exportRecord.fileUrl}', 
-         '${fileFormat}', '${createdAt}', '${reportName}', '${month}')
+         '${fileFormat}', '${createdAt}', '${reportName}', '${month}', ${exportRecord.userId})
         RETURNING *
       `;
       
@@ -357,7 +358,8 @@ export class DatabaseStorage implements IStorage {
         exportType: exportRecord.exportType,
         fileUrl: exportRecord.fileUrl,
         fileFormat: exportRecord.fileFormat || 'csv',
-        createdAt: new Date()
+        createdAt: new Date(),
+        createdBy: exportRecord.userId
       } as ExportRecord;
     }
   }

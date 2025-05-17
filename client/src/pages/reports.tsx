@@ -89,15 +89,43 @@ export default function ReportsPage() {
       // Refresh export history
       queryClient.invalidateQueries({ queryKey: ['/api/export-records'] });
       
-      // Trigger download
-      if (data && data.downloadUrl) {
-        window.location.href = data.downloadUrl;
-      }
+      // Get the filename from the URL or generate a default one
+      const fileName = data?.downloadUrl 
+        ? data.downloadUrl.split('/').pop() 
+        : `payroll-${payrollType}-${format(startDate!, "yyyyMMdd")}-to-${format(endDate!, "yyyyMMdd")}.${reportFormat}`;
       
-      toast({
-        title: "Success",
-        description: "Report generated successfully",
-      });
+      // Create a better download experience
+      if (data && data.downloadUrl) {
+        // Create an invisible link and trigger a download programmatically
+        const downloadLink = document.createElement('a');
+        downloadLink.href = data.downloadUrl;
+        downloadLink.setAttribute('download', fileName);
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        // Show detailed toast with information about the downloaded file
+        toast({
+          title: "Report Download Started",
+          description: (
+            <div className="space-y-2">
+              <p>Your report has been generated successfully.</p>
+              <p className="font-medium">File: {fileName}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                If the download didn't start automatically, you can find it in your browser's download folder or click 
+                the download button in the Recent Exports section.
+              </p>
+            </div>
+          ),
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "Report Generated",
+          description: "Your report has been generated but the download link is not available. Check the Recent Exports section to download it.",
+          variant: "default",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
