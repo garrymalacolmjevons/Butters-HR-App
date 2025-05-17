@@ -656,11 +656,12 @@ export class DatabaseStorage implements IStorage {
     employeeId?: number;
     company?: string;
     status?: string;
-  }): Promise<(InsurancePolicy & { employeeName: string })[]> {
+  }): Promise<(InsurancePolicy & { employeeName: string, employeeCode: string | null })[]> {
     let query = db
       .select({
         ...insurancePolicies,
-        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
       })
       .from(insurancePolicies)
       .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
@@ -683,11 +684,12 @@ export class DatabaseStorage implements IStorage {
     return await query;
   }
   
-  async getInsurancePolicy(id: number): Promise<(InsurancePolicy & { employeeName: string }) | undefined> {
+  async getInsurancePolicy(id: number): Promise<(InsurancePolicy & { employeeName: string, employeeCode: string | null }) | undefined> {
     const [result] = await db
       .select({
         ...insurancePolicies,
-        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
       })
       .from(insurancePolicies)
       .leftJoin(employees, eq(insurancePolicies.employeeId, employees.id))
