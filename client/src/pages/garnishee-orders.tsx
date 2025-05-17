@@ -152,7 +152,7 @@ const GarnisheeOrders: React.FC = () => {
   const openPaymentForm = async (garnishee: StaffGarnishee) => {
     setSelectedGarnishee(garnishee);
     setNewPayment({
-      amount: garnishee.installmentAmount.toString(),
+      amount: garnishee.monthlyAmount.toString(),
       paymentDate: format(new Date(), 'yyyy-MM-dd'),
       notes: ''
     });
@@ -241,7 +241,7 @@ const GarnisheeOrders: React.FC = () => {
       
       // Clear form
       setNewPayment({
-        amount: selectedGarnishee.installmentAmount.toString(),
+        amount: selectedGarnishee.monthlyAmount.toString(),
         paymentDate: format(new Date(), 'yyyy-MM-dd'),
         notes: ''
       });
@@ -363,17 +363,17 @@ const GarnisheeOrders: React.FC = () => {
                   <TableRow key={garnishee.id}>
                     <TableCell>{garnishee.employeeName}</TableCell>
                     <TableCell>{garnishee.employeeCode || 'N/A'}</TableCell>
+                    <TableCell>{garnishee.caseNumber || 'N/A'}</TableCell>
                     <TableCell>{garnishee.creditor}</TableCell>
-                    <TableCell>{garnishee.reason}</TableCell>
                     <TableCell>{formatCurrency(garnishee.totalAmount)}</TableCell>
-                    <TableCell>{formatCurrency(garnishee.installmentAmount)}</TableCell>
+                    <TableCell>{formatCurrency(garnishee.monthlyAmount)}</TableCell>
+                    <TableCell>{formatCurrency(garnishee.balance)}</TableCell>
                     <TableCell>{formatDate(garnishee.startDate)}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(garnishee.status)}>
                         {garnishee.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatCurrency(garnishee.remainingAmount || 0)}</TableCell>
                     <TableCell className="space-x-2">
                       <Button variant="outline" size="sm" onClick={() => openGarnisheeForm(garnishee)}>Edit</Button>
                       <Button variant="outline" size="sm" onClick={() => openPaymentForm(garnishee)}>Payments</Button>
@@ -424,11 +424,10 @@ const GarnisheeOrders: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm font-medium">Reason</label>
+                <label className="block text-sm font-medium">Case Number</label>
                 <Input 
-                  value={newGarnishee.reason} 
-                  onChange={(e) => setNewGarnishee({...newGarnishee, reason: e.target.value})}
-                  required
+                  value={newGarnishee.caseNumber} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, caseNumber: e.target.value})}
                 />
               </div>
             </div>
