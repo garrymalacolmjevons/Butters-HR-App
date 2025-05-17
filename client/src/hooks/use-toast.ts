@@ -17,3 +17,10 @@ export const toast = ({
     alert(message);
   }
 };
+
+// Export useToast hook to maintain compatibility with existing components
+export const useToast = () => {
+  return {
+    toast
+  };
+};

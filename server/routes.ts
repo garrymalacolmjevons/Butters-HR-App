@@ -467,6 +467,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(error);
     }
   });
+  
+  // Records Editor API endpoints
+  app.get("/api/payroll/records", isAuthenticated, async (req, res, next) => {
+    try {
+      const { employeeId, recordType, status, startDate, endDate } = req.query;
+      
+      const filter: any = {};
+      if (employeeId) filter.employeeId = parseInt(employeeId as string);
+      if (recordType) filter.recordType = recordType as string;
+      if (status) filter.status = status as string;
+      if (startDate) filter.startDate = new Date(startDate as string);
+      if (endDate) filter.endDate = new Date(endDate as string);
+      
+      const records = await storage.getPayrollRecords(filter);
+      res.json(records);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.patch("/api/payroll/records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const data = insertPayrollRecordSchema.partial().parse(req.body);
+      const record = await storage.updatePayrollRecord(id, data);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Record not found" });
+      }
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Payroll Record",
+        details: `Updated payroll record #${id} (${record.recordType})`
+      });
+      
+      res.json(record);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
 
   app.get("/api/payroll-records/:id", isAuthenticated, async (req, res, next) => {
     try {
