@@ -1116,7 +1116,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getGarnisheeDashboardData(): Promise<{
-    activeOrders: number;
+    activeGarnishees: number;
     totalOutstanding: number;
     monthlyPayments: number;
   }> {
@@ -1136,7 +1136,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(staffGarnishees.status, 'Active'));
     
     return {
-      activeOrders: activeCount?.count || 0,
+      activeGarnishees: activeCount?.count || 0,
       totalOutstanding: totalOutstanding?.sum || 0,
       monthlyPayments: monthlyTotal?.sum || 0
     };
