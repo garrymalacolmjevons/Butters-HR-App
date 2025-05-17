@@ -2647,5 +2647,195 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Staff Garnishee Orders routes
+  app.get("/api/garnishee-dashboard", isAuthenticated, async (req, res, next) => {
+    try {
+      const dashboardData = await storage.getGarnisheeDashboardData();
+      return res.json(dashboardData);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.get("/api/staff-garnishees", isAuthenticated, async (req, res, next) => {
+    try {
+      const filter: any = {};
+      
+      if (req.query.employeeId) {
+        filter.employeeId = parseInt(req.query.employeeId as string);
+      }
+      
+      if (req.query.status) {
+        filter.status = req.query.status;
+      }
+      
+      const garnishees = await storage.getStaffGarnishees(filter);
+      return res.json(garnishees);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.get("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const garnishee = await storage.getStaffGarnishee(id);
+      
+      if (!garnishee) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      return res.json(garnishee);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.post("/api/staff-garnishees", isAuthenticated, async (req, res, next) => {
+    try {
+      const garnisheeData = req.body;
+      const userId = (req.user as any).id;
+      
+      // Convert string dates to Date objects
+      if (garnisheeData.startDate) {
+        garnisheeData.startDate = new Date(garnisheeData.startDate);
+      }
+      if (garnisheeData.endDate) {
+        garnisheeData.endDate = new Date(garnisheeData.endDate);
+      }
+      
+      // Ensure correct data types
+      garnisheeData.employeeId = Number(garnisheeData.employeeId);
+      garnisheeData.monthlyAmount = Number(garnisheeData.monthlyAmount);
+      garnisheeData.totalAmount = Number(garnisheeData.totalAmount);
+      garnisheeData.balance = Number(garnisheeData.balance);
+      
+      const garnishee = await storage.createStaffGarnishee(garnisheeData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_STAFF_GARNISHEE",
+        details: `Created garnishee order for employee ID: ${garnishee.employeeId}`
+      });
+      
+      return res.status(201).json(garnishee);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.patch("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const garnisheeData = req.body;
+      const userId = (req.user as any).id;
+      
+      // Convert string dates to Date objects
+      if (garnisheeData.startDate) {
+        garnisheeData.startDate = new Date(garnisheeData.startDate);
+      }
+      if (garnisheeData.endDate) {
+        garnisheeData.endDate = new Date(garnisheeData.endDate);
+      }
+      
+      // Ensure correct data types if they exist
+      if (garnisheeData.employeeId) {
+        garnisheeData.employeeId = Number(garnisheeData.employeeId);
+      }
+      if (garnisheeData.monthlyAmount) {
+        garnisheeData.monthlyAmount = Number(garnisheeData.monthlyAmount);
+      }
+      if (garnisheeData.totalAmount) {
+        garnisheeData.totalAmount = Number(garnisheeData.totalAmount);
+      }
+      if (garnisheeData.balance) {
+        garnisheeData.balance = Number(garnisheeData.balance);
+      }
+      
+      const garnishee = await storage.updateStaffGarnishee(id, garnisheeData);
+      
+      if (!garnishee) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "UPDATE_STAFF_GARNISHEE",
+        details: `Updated garnishee order ID: ${id}`
+      });
+      
+      return res.json(garnishee);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.delete("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = (req.user as any).id;
+      
+      const success = await storage.deleteStaffGarnishee(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "DELETE_STAFF_GARNISHEE",
+        details: `Deleted garnishee order ID: ${id}`
+      });
+      
+      return res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Garnishee Payments routes
+  app.get("/api/garnishee-payments/:garnisheeId", isAuthenticated, async (req, res, next) => {
+    try {
+      const garnisheeId = parseInt(req.params.garnisheeId);
+      const payments = await storage.getGarnisheePayments(garnisheeId);
+      return res.json(payments);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.post("/api/garnishee-payments", isAuthenticated, async (req, res, next) => {
+    try {
+      const paymentData = req.body;
+      const userId = (req.user as any).id;
+      
+      // Convert string dates to Date objects
+      if (paymentData.paymentDate) {
+        paymentData.paymentDate = new Date(paymentData.paymentDate);
+      }
+      
+      // Ensure correct data types
+      paymentData.garnisheeId = Number(paymentData.garnisheeId);
+      paymentData.amount = Number(paymentData.amount);
+      paymentData.createdBy = userId;
+      
+      const payment = await storage.createGarnisheePayment(paymentData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_GARNISHEE_PAYMENT",
+        details: `Created payment for garnishee order ID: ${paymentData.garnisheeId}`
+      });
+      
+      return res.status(201).json(payment);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return server;
 }
