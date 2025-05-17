@@ -670,8 +670,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate a unique filename for the export
       const timestamp = new Date().getTime();
       const fileName = `payroll-${recordType}-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}-${timestamp}`;
-      const filePath = `public/exports/${fileName}.${format}`;
-      const publicUrl = `/exports/${fileName}.${format}`;
       
       // Ensure the exports directory exists
       if (!fs.existsSync('public/exports')) {
@@ -699,21 +697,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add rows
         worksheet.addRows(reportData.map((record: any) => ({
           ...record,
-          date: new Date(record.date).toLocaleDateString(),
+          date: record.date ? new Date(record.date).toLocaleDateString() : '',
           approved: record.approved ? 'Yes' : 'No'
         })));
         
-        // Save the file
-        await workbook.xlsx.writeFile(filePath);
+        // Set headers for Excel download
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+        
+        // Log the activity before sending the response
+        try {
+          await storage.createActivityLog({
+            userId,
+            action: "Generated Report",
+            details: `Generated Excel report for ${recordType} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+          });
+        } catch (error) {
+          console.error('Error logging activity:', error);
+        }
+        
+        // Write directly to the response
+        return workbook.xlsx.write(res)
+          .then(() => {
+            res.end();
+          });
       } else {
         // Generate CSV file
         // Format data for CSV - customize these fields to match what Tracey needs
         const csvData = reportData.map((record: any) => ({
           'Employee Code': record.employeeCode || '',
-          'Employee Name': record.employeeName,
-          'Record Type': record.recordType,
-          'Date': new Date(record.date).toLocaleDateString(),
-          'Amount': record.amount,
+          'Employee Name': record.employeeName || '',
+          'Record Type': record.recordType || '',
+          'Date': record.date ? new Date(record.date).toLocaleDateString() : '',
+          'Amount': record.amount || '',
           'Description': record.description || '',
           'Hours': record.hours || '',
           'Rate': record.rate || '',
@@ -738,35 +754,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           csv = json2csvParser.parse(csvData);
         }
         
-        // Write file
-        fs.writeFileSync(filePath, csv);
+        // Log the activity before sending the response
+        try {
+          await storage.createActivityLog({
+            userId,
+            action: "Generated Report",
+            details: `Generated CSV report for ${recordType} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+          });
+        } catch (error) {
+          console.error('Error logging activity:', error);
+        }
+        
+        // Set headers for CSV download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        // Send CSV directly to browser
+        return res.send(csv);
       }
-      
-      // Create export record in database
-      const exportRecord = await storage.createExportRecord({
-        userId,
-        exportType: recordType,
-        fileUrl: publicUrl,
-        fileFormat: format,
-        startDate,
-        endDate,
-        includeUnapproved,
-        recordCount: reportData.length
-      });
-      
-      // Log the activity
-      await storage.createActivityLog({
-        userId,
-        action: "Generated Report",
-        details: `Generated ${format.toUpperCase()} report for ${recordType} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
-      });
-      
-      res.status(200).json({
-        success: true,
-        exportId: exportRecord.id,
-        downloadUrl: publicUrl,
-        message: `Report generated successfully with ${reportData.length} records`
-      });
     } catch (error) {
       console.error('Error generating report:', error);
       res.status(500).json({ error: 'Failed to generate report: ' + error.message });
