@@ -132,14 +132,14 @@ export default function Sidebar() {
           label="Dashboard" 
         />
         <NavItem 
-          icon={UserCog} 
-          path="/staff" 
-          label="Staff" 
-        />
-        <NavItem 
           icon={Users} 
           path="/employees" 
           label="Employees" 
+        />
+        <NavItem 
+          icon={UserCog} 
+          path="/staff" 
+          label="Staff Related" 
         />
         <NavItem 
           icon={BadgeDollarSign} 
