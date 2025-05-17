@@ -189,10 +189,11 @@ export class DatabaseStorage implements IStorage {
     startDate?: Date;
     endDate?: Date;
     types?: string[]; // Array of record types to include
-  }): Promise<(PayrollRecord & { employeeName: string })[]> {
+  }): Promise<(PayrollRecord & { employeeName: string, employeeCode: string | null })[]> {
     const payrollWithEmployeeQuery = db.select({
       ...payrollRecords,
-      employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`
+      employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`,
+      employeeCode: employees.employeeCode
     })
     .from(payrollRecords)
     .leftJoin(employees, eq(payrollRecords.employeeId, employees.id))
@@ -233,10 +234,11 @@ export class DatabaseStorage implements IStorage {
     return await payrollWithEmployeeQuery;
   }
 
-  async getPayrollRecord(id: number): Promise<(PayrollRecord & { employeeName: string }) | undefined> {
+  async getPayrollRecord(id: number): Promise<(PayrollRecord & { employeeName: string, employeeCode: string | null }) | undefined> {
     const [record] = await db.select({
       ...payrollRecords,
-      employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`
+      employeeName: sql<string>`concat(${employees.firstName}, ' ', ${employees.lastName})`,
+      employeeCode: employees.employeeCode
     })
     .from(payrollRecords)
     .leftJoin(employees, eq(payrollRecords.employeeId, employees.id))
