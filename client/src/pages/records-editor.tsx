@@ -1,677 +1,714 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet";
-import { useToast } from "@/hooks/use-toast";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { format, addMonths, subMonths, isValid } from "date-fns";
-
+import { format } from "date-fns";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Download, FileSpreadsheet, Save, Search, Filter, X, Check, Edit, Trash } from "lucide-react";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Filter, 
+  Search, 
+  Save, 
+  Plus,
+  CheckSquare,
+  Edit,
+  Trash,
+  Download,
+  FileSpreadsheet,
+} from "lucide-react";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { apiRequest } from "@/lib/query-client";
+import { toast } from "@/hooks/use-toast";
 
-import { apiRequest } from "@/lib/queryClient";
-import { PageHeader } from "@/components/ui/page-header";
-import logoPath from "@assets/Logo.jpg";
+// Record type definitions
+type RecordStatus = "Pending" | "Approved" | "Rejected";
+type RecordType = 
+  | "Leave" 
+  | "Termination" 
+  | "Advance" 
+  | "Loan" 
+  | "Deduction" 
+  | "Overtime" 
+  | "Standby"
+  | "Bank Change"
+  | "Special Shift"
+  | "Escort Allowance"
+  | "Commission"
+  | "Cash in Transit";
 
-// Record types for dropdown
-const RECORD_TYPES = [
-  "All Record Types",
-  "Overtime",
-  "Special Shift",
-  "Escort Allowance",
-  "Commission",
-  "Leave",
-  "Termination",
-  "Advance",
-  "Loan",
-  "Deduction",
-  "Bank Account Change",
-  "Standby Shift",
-  "Cash in Transit"
-];
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  employeeCode: string | null;
+  fullName?: string;
+}
 
-export default function RecordsEditorPage() {
-  const { toast } = useToast();
+interface PayrollRecord {
+  id: number;
+  employeeId: number;
+  recordType: RecordType;
+  date: string;
+  amount: number | null;
+  details: string | null;
+  status: RecordStatus | null;
+  documentImage: string | null;
+  documentId: string | null;
+  approvedBy: number | null;
+  approvedAt: Date | null;
+  createdAt: Date | null;
+  employeeName?: string;
+}
+
+// Add a utils type for displaying edit fields based on record type
+type EditingCell = {
+  recordId: number;
+  field: keyof PayrollRecord;
+  value: any;
+};
+
+const RecordsEditor = () => {
   const queryClient = useQueryClient();
-  const [dateRange, setDateRange] = useState({
-    from: subMonths(new Date(), 1),
-    to: new Date(),
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | undefined>({
+    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    to: new Date()
   });
-  const [recordType, setRecordType] = useState<string>("All Record Types");
-  const [includeUnapproved, setIncludeUnapproved] = useState<boolean>(true);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [records, setRecords] = useState<any[]>([]);
-  const [filteredRecords, setFilteredRecords] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [editingCell, setEditingCell] = useState<{ rowIndex: number | null; field: string | null }>({
-    rowIndex: null,
-    field: null,
-  });
-  const [editValue, setEditValue] = useState<string>("");
+  const [filterType, setFilterType] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Format dates for API calls
-  const formattedStartDate = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
-  const formattedEndDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "";
-
-  // Fetch payroll records
-  const fetchRecords = async () => {
-    setIsLoading(true);
-    try {
-      const recordTypeParam = recordType === "All Record Types" ? "all" : recordType;
-      const response = await apiRequest<{ 
-        success: boolean; 
-        data: any[];
-        totalRecords: number; 
-      }>("/api/reports/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          startDate: formattedStartDate,
-          endDate: formattedEndDate,
-          recordType: recordTypeParam,
-          includeUnapproved,
-        }),
-      });
-
-      if (response.success) {
-        setRecords(response.data || []);
-        setFilteredRecords(response.data || []);
-      } else {
-        toast({
-          title: "Error fetching records",
-          description: "Failed to fetch payroll records. Please try again.",
-          variant: "destructive",
-        });
+  // Query to fetch all records with filtering
+  const { data: records = [], isLoading, isError } = useQuery({
+    queryKey: [
+      '/api/payroll/records', 
+      dateRange, 
+      filterType, 
+      filterStatus, 
+      searchTerm
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      
+      if (dateRange?.from) {
+        params.append('startDate', dateRange.from.toISOString());
       }
-    } catch (error) {
-      toast({
-        title: "Error fetching records",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      if (dateRange?.to) {
+        params.append('endDate', dateRange.to.toISOString());
+      }
+      if (filterType) {
+        params.append('recordType', filterType);
+      }
+      if (filterStatus) {
+        params.append('status', filterStatus);
+      }
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+      
+      const response = await fetch(`/api/payroll/records?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch records');
+      }
+      return response.json();
+    },
+    enabled: !!dateRange,
+  });
 
-  // Filter records when search query changes
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredRecords(records);
-      return;
-    }
+  // Query to fetch all employees for dropdown
+  const { data: employees = [] } = useQuery({
+    queryKey: ['/api/employees'],
+    queryFn: async () => {
+      const response = await fetch('/api/employees');
+      if (!response.ok) {
+        throw new Error('Failed to fetch employees');
+      }
+      return response.json();
+    },
+  });
 
-    const query = searchQuery.toLowerCase();
-    const filtered = records.filter(record => {
-      return (
-        (record.employeeName?.toLowerCase().includes(query)) ||
-        (record.employeeCode?.toLowerCase().includes(query)) ||
-        (record.description?.toLowerCase().includes(query)) ||
-        (record.recordType?.toLowerCase().includes(query))
-      );
-    });
-
-    setFilteredRecords(filtered);
-  }, [searchQuery, records]);
-
-  // Update a record
-  const updateRecord = useMutation({
+  // Mutation to update a record
+  const updateRecordMutation = useMutation({
     mutationFn: async ({ id, field, value }: { id: number; field: string; value: any }) => {
-      return apiRequest(`/api/payroll-records/${id}`, {
-        method: "PATCH",
+      const response = await apiRequest(`/api/payroll/records/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ [field]: value }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update record');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/payroll/records'] });
       toast({
         title: "Record updated",
-        description: "The record has been updated successfully.",
+        description: "The record has been successfully updated.",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/reports/preview'] });
-      // Refresh the data
-      fetchRecords();
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Update failed",
-        description: "Failed to update the record. Please try again.",
+        title: "Error",
+        description: `Failed to update record: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     },
   });
 
-  // Delete a record
-  const deleteRecord = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest(`/api/payroll-records/${id}`, {
-        method: "DELETE",
+  // Mutation to approve or reject a record
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: RecordStatus }) => {
+      const response = await apiRequest(`/api/payroll/records/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update record status');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/payroll/records'] });
       toast({
-        title: "Record deleted",
-        description: "The record has been deleted successfully.",
+        title: "Status updated",
+        description: "The record status has been successfully updated.",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/reports/preview'] });
-      // Refresh the data
-      fetchRecords();
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Delete failed",
-        description: "Failed to delete the record. Please try again.",
+        title: "Error",
+        description: `Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     },
   });
 
   // Handle cell click for editing
-  const handleCellClick = (rowIndex: number, field: string, value: string) => {
-    setEditingCell({ rowIndex, field });
-    setEditValue(value || "");
+  const handleCellClick = (record: PayrollRecord, field: keyof PayrollRecord) => {
+    // Don't allow editing of certain fields
+    const nonEditableFields: (keyof PayrollRecord)[] = ['id', 'employeeName', 'createdAt', 'approvedAt', 'approvedBy'];
+    if (nonEditableFields.includes(field)) return;
+
+    setEditingCell({
+      recordId: record.id,
+      field,
+      value: record[field],
+    });
+
+    // Focus the input after it's rendered
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 10);
   };
 
-  // Save cell edit
-  const handleSaveEdit = () => {
-    if (editingCell.rowIndex === null || editingCell.field === null) return;
+  // Handle cell value change
+  const handleCellChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (!editingCell) return;
     
-    const record = filteredRecords[editingCell.rowIndex];
-    if (!record || !record.id) return;
+    setEditingCell({
+      ...editingCell,
+      value: e.target.value,
+    });
+  };
 
-    updateRecord.mutate({
-      id: record.id,
+  // Handle save cell value
+  const handleSaveCell = () => {
+    if (!editingCell) return;
+    
+    updateRecordMutation.mutate({
+      id: editingCell.recordId,
       field: editingCell.field,
-      value: editValue,
+      value: editingCell.value,
     });
-
-    // Reset editing state
-    setEditingCell({ rowIndex: null, field: null });
+    
+    setEditingCell(null);
   };
 
-  // Cancel cell edit
-  const handleCancelEdit = () => {
-    setEditingCell({ rowIndex: null, field: null });
-  };
-
-  // Handle key press in edit mode
+  // Handle key press in editing cell
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSaveEdit();
-    } else if (e.key === "Escape") {
-      handleCancelEdit();
+    if (e.key === 'Enter') {
+      handleSaveCell();
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
     }
   };
 
-  // Toggle record approval
-  const handleToggleApproval = (id: number, currentApprovalStatus: boolean) => {
-    updateRecord.mutate({
-      id,
-      field: "approved",
-      value: !currentApprovalStatus,
+  // Handle status change
+  const handleStatusChange = (recordId: number, status: RecordStatus) => {
+    updateStatusMutation.mutate({
+      id: recordId,
+      status,
     });
   };
 
-  // Handle record deletion
-  const handleDeleteRecord = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this record? This action cannot be undone.")) {
-      deleteRecord.mutate(id);
+  // Format currency values
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return '-';
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+    }).format(amount);
+  };
+
+  // Render the badge for record status
+  const renderStatusBadge = (status: RecordStatus | null) => {
+    switch (status) {
+      case 'Approved':
+        return <Badge variant="success" className="flex items-center gap-1"><CheckCircle size={14} /> Approved</Badge>;
+      case 'Rejected':
+        return <Badge variant="destructive" className="flex items-center gap-1"><XCircle size={14} /> Rejected</Badge>;
+      case 'Pending':
+      default:
+        return <Badge variant="outline" className="flex items-center gap-1"><Clock size={14} /> Pending</Badge>;
     }
   };
 
-  // Editable fields
-  const editableFields = ["description", "amount", "details", "hours", "days"];
+  // Cell renderer
+  const renderCell = (record: PayrollRecord, field: keyof PayrollRecord) => {
+    // Check if this cell is being edited
+    if (editingCell && editingCell.recordId === record.id && editingCell.field === field) {
+      // Render different input types based on the field
+      switch (field) {
+        case 'employeeId':
+          return (
+            <Select 
+              value={String(editingCell.value)} 
+              onValueChange={(value) => {
+                setEditingCell({
+                  ...editingCell,
+                  value: parseInt(value),
+                });
+              }}
+              onOpenChange={(open) => {
+                if (!open) {
+                  handleSaveCell();
+                }
+              }}
+            >
+              <SelectTrigger className="w-full h-8">
+                <SelectValue placeholder="Select employee" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((employee: Employee) => (
+                  <SelectItem key={employee.id} value={String(employee.id)}>
+                    {employee.firstName} {employee.lastName} {employee.employeeCode ? `(${employee.employeeCode})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        case 'recordType':
+          return (
+            <Select 
+              value={String(editingCell.value)} 
+              onValueChange={(value) => {
+                setEditingCell({
+                  ...editingCell,
+                  value: value,
+                });
+              }}
+              onOpenChange={(open) => {
+                if (!open) {
+                  handleSaveCell();
+                }
+              }}
+            >
+              <SelectTrigger className="w-full h-8">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Leave">Leave</SelectItem>
+                <SelectItem value="Termination">Termination</SelectItem>
+                <SelectItem value="Advance">Advance</SelectItem>
+                <SelectItem value="Loan">Loan</SelectItem>
+                <SelectItem value="Deduction">Deduction</SelectItem>
+                <SelectItem value="Overtime">Overtime</SelectItem>
+                <SelectItem value="Standby">Standby</SelectItem>
+                <SelectItem value="Bank Change">Bank Change</SelectItem>
+                <SelectItem value="Special Shift">Special Shift</SelectItem>
+                <SelectItem value="Escort Allowance">Escort Allowance</SelectItem>
+                <SelectItem value="Commission">Commission</SelectItem>
+                <SelectItem value="Cash in Transit">Cash in Transit</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        case 'date':
+          return (
+            <Input 
+              type="date" 
+              ref={inputRef}
+              value={editingCell.value ? new Date(editingCell.value).toISOString().split('T')[0] : ''}
+              onChange={handleCellChange} 
+              onBlur={handleSaveCell}
+              onKeyDown={handleKeyPress}
+              className="w-full h-8"
+            />
+          );
+        case 'amount':
+          return (
+            <Input 
+              type="number" 
+              ref={inputRef}
+              value={editingCell.value || ''}
+              onChange={handleCellChange} 
+              onBlur={handleSaveCell}
+              onKeyDown={handleKeyPress}
+              step="0.01"
+              className="w-full h-8"
+            />
+          );
+        case 'status':
+          return (
+            <Select 
+              value={String(editingCell.value)} 
+              onValueChange={(value) => {
+                setEditingCell({
+                  ...editingCell,
+                  value: value,
+                });
+              }}
+              onOpenChange={(open) => {
+                if (!open) {
+                  handleSaveCell();
+                }
+              }}
+            >
+              <SelectTrigger className="w-full h-8">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Approved">Approved</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        default:
+          return (
+            <Input 
+              type="text" 
+              ref={inputRef}
+              value={editingCell.value || ''}
+              onChange={handleCellChange} 
+              onBlur={handleSaveCell}
+              onKeyDown={handleKeyPress}
+              className="w-full h-8"
+            />
+          );
+      }
+    }
+
+    // Render formatted value
+    switch (field) {
+      case 'employeeName':
+        return record.employeeName || '-';
+      case 'date':
+        return record.date ? format(new Date(record.date), 'dd/MM/yyyy') : '-';
+      case 'amount':
+        return formatCurrency(record.amount);
+      case 'details':
+        return record.details || '-';
+      case 'status':
+        return renderStatusBadge(record.status);
+      case 'documentImage':
+        return record.documentImage ? (
+          <a 
+            href={record.documentImage} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            View Document
+          </a>
+        ) : '-';
+      case 'createdAt':
+        return record.createdAt ? format(new Date(record.createdAt), 'dd/MM/yyyy HH:mm') : '-';
+      case 'approvedAt':
+        return record.approvedAt ? format(new Date(record.approvedAt), 'dd/MM/yyyy HH:mm') : '-';
+      default:
+        return String(record[field]) || '-';
+    }
+  };
+
+  // Calculate grid-template-columns for the table
+  const columnConfig = [
+    { field: 'employeeName', header: 'Employee' },
+    { field: 'recordType', header: 'Type' },
+    { field: 'date', header: 'Date' },
+    { field: 'amount', header: 'Amount' },
+    { field: 'details', header: 'Details' },
+    { field: 'status', header: 'Status' },
+    { field: 'documentImage', header: 'Document' },
+    { field: 'createdAt', header: 'Created' },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle className="text-red-500">Error</CardTitle>
+            <CardDescription>Failed to load records</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>There was an error loading the records. Please try again later.</p>
+          </CardContent>
+          <CardFooter>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/payroll/records'] })}
+            >
+              Retry
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <>
+    <div className="container mx-auto px-4 py-6">
       <Helmet>
-        <title>Records Editor | Hi-Tec Security HR Portal</title>
-        <meta
-          name="description"
-          content="Edit payroll records in a spreadsheet-like interface for Hi-Tec Security HR Portal"
-        />
+        <title>Records Editor | Hi-Tec Security</title>
       </Helmet>
-
+      
       <div className="flex flex-col space-y-6">
-        <PageHeader
-          title="Records Editor"
-          subtitle="Edit payroll records in a spreadsheet-like interface"
-          image={logoPath}
-          className="h-16 w-auto"
-        />
-
-        <Card className="border-2 border-amber-400/20 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white">
-            <CardTitle>Search & Filter Records</CardTitle>
-            <CardDescription className="text-gray-300">
-              Find and filter payroll records for editing
-            </CardDescription>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Records Editor</h1>
+            <p className="text-gray-500">Edit and manage payroll records in a spreadsheet-like interface</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="default">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Record
+            </Button>
+            <Button variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </div>
+        </div>
+        
+        {/* Filters */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-medium flex items-center">
+              <Filter className="mr-2 h-5 w-5" />
+              Filter Records
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date-range">Date Range</Label>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
                 <DatePickerWithRange
-                  id="date-range"
                   value={dateRange}
-                  onChange={setDateRange}
+                  onChange={(range) => {
+                    if (range?.from) {
+                      setDateRange(range);
+                    }
+                  }}
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="record-type">Record Type</Label>
-                <Select
-                  value={recordType}
-                  onValueChange={setRecordType}
-                >
-                  <SelectTrigger id="record-type">
-                    <SelectValue placeholder="Select record type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RECORD_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="search-query">Search</Label>
+              
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Record Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Record Types</SelectItem>
+                  <SelectItem value="Leave">Leave</SelectItem>
+                  <SelectItem value="Termination">Termination</SelectItem>
+                  <SelectItem value="Advance">Advance</SelectItem>
+                  <SelectItem value="Loan">Loan</SelectItem>
+                  <SelectItem value="Deduction">Deduction</SelectItem>
+                  <SelectItem value="Overtime">Overtime</SelectItem>
+                  <SelectItem value="Standby">Standby</SelectItem>
+                  <SelectItem value="Bank Change">Bank Change</SelectItem>
+                  <SelectItem value="Special Shift">Special Shift</SelectItem>
+                  <SelectItem value="Escort Allowance">Escort Allowance</SelectItem>
+                  <SelectItem value="Commission">Commission</SelectItem>
+                  <SelectItem value="Cash in Transit">Cash in Transit</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="md:col-span-3">
                 <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    id="search-query"
-                    placeholder="Search by name, code, etc."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by employee name, details, document ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
                   />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-2 top-2.5"
-                    >
-                      <X className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-end">
-                <div className="flex items-center space-x-2 h-10">
-                  <Checkbox
-                    id="include-unapproved"
-                    checked={includeUnapproved}
-                    onCheckedChange={(checked) => setIncludeUnapproved(checked as boolean)}
-                  />
-                  <Label htmlFor="include-unapproved">Include unapproved records</Label>
                 </div>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="bg-gray-50 px-6 py-3">
-            <Button 
-              onClick={fetchRecords} 
-              disabled={isLoading}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <Filter className="mr-2 h-4 w-4" />
-                  Load Records
-                </>
-              )}
-            </Button>
-          </CardFooter>
         </Card>
-
-        <Card className="border-2 border-amber-400/20 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white">
-            <CardTitle>Records Data Table</CardTitle>
-            <CardDescription className="text-gray-300">
-              Click on cells to edit values directly
-            </CardDescription>
-          </CardHeader>
-          <div className="overflow-x-auto">
+        
+        {/* Table */}
+        <Card>
+          <CardContent className="p-0 overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Actions</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Record Type</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Days</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Details</TableHead>
-                  <TableHead>Approved</TableHead>
+                  {columnConfig.map((column) => (
+                    <TableHead key={column.field} className="whitespace-nowrap">
+                      {column.header}
+                    </TableHead>
+                  ))}
+                  <TableHead className="whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecords.length === 0 ? (
+                {records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
-                      {isLoading ? (
-                        <div className="flex flex-col items-center justify-center space-y-3">
-                          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-                          <p>Loading records...</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center space-y-3">
-                          <FileSpreadsheet className="h-8 w-8 text-gray-400" />
-                          <p>No records found. Use the filters above to load records.</p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={fetchRecords}
-                            className="mt-2"
-                          >
-                            <Search className="mr-2 h-4 w-4" />
-                            Load Records
-                          </Button>
-                        </div>
-                      )}
+                    <TableCell colSpan={columnConfig.length + 1} className="text-center py-8">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <FileSpreadsheet className="h-8 w-8 text-gray-400" />
+                        <h3 className="font-medium text-lg">No records found</h3>
+                        <p className="text-gray-500 max-w-sm">
+                          No payroll records match your current filters. Try adjusting your search criteria or date range.
+                        </p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRecords.map((record, rowIndex) => (
-                    <TableRow key={record.id || rowIndex}>
+                  records.map((record: PayrollRecord) => (
+                    <TableRow key={record.id}>
+                      {columnConfig.map((column) => (
+                        <TableCell 
+                          key={`${record.id}-${column.field}`}
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => handleCellClick(record, column.field as keyof PayrollRecord)}
+                        >
+                          {renderCell(record, column.field as keyof PayrollRecord)}
+                        </TableCell>
+                      ))}
                       <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleApproval(record.id, record.approved)}
-                            className={record.approved ? "text-green-600" : "text-yellow-600"}
-                            title={record.approved ? "Unapprove record" : "Approve record"}
-                          >
-                            {record.approved ? <Check className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-                          </Button>
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteRecord(record.id)}
-                            className="text-red-600"
-                            title="Delete record"
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
+                        <div className="flex items-center gap-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-3">
+                              <div className="flex flex-col gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="justify-start"
+                                  onClick={() => handleStatusChange(record.id, "Approved")}
+                                  disabled={record.status === "Approved"}
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="justify-start"
+                                  onClick={() => handleStatusChange(record.id, "Rejected")}
+                                  disabled={record.status === "Rejected"}
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Reject
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash className="mr-2 h-4 w-4" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="font-medium">{record.employeeName || "-"}</div>
-                        <div className="text-xs text-gray-500">{record.employeeCode || "-"}</div>
-                      </TableCell>
-                      
-                      <TableCell>{record.recordType || "-"}</TableCell>
-                      
-                      <TableCell>
-                        {record.date ? new Date(record.date).toLocaleDateString() : "-"}
-                      </TableCell>
-                      
-                      {editableFields.includes("amount") && 
-                       editingCell.rowIndex === rowIndex && 
-                       editingCell.field === "amount" ? (
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <Input
-                              type="number"
-                              className="w-20 h-8 text-sm"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={handleKeyPress}
-                              autoFocus
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-green-600"
-                              onClick={handleSaveEdit}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-red-600"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      ) : (
-                        <TableCell
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => handleCellClick(rowIndex, "amount", record.amount?.toString() || "")}
-                        >
-                          {typeof record.amount === "number" ? `R${record.amount.toFixed(2)}` : "-"}
-                        </TableCell>
-                      )}
-                      
-                      {editableFields.includes("hours") && 
-                       editingCell.rowIndex === rowIndex && 
-                       editingCell.field === "hours" ? (
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <Input
-                              type="number"
-                              className="w-20 h-8 text-sm"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={handleKeyPress}
-                              autoFocus
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-green-600"
-                              onClick={handleSaveEdit}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-red-600"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      ) : (
-                        <TableCell
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => handleCellClick(rowIndex, "hours", record.hours?.toString() || "")}
-                        >
-                          {record.hours || "-"}
-                        </TableCell>
-                      )}
-                      
-                      {editableFields.includes("days") && 
-                       editingCell.rowIndex === rowIndex && 
-                       editingCell.field === "days" ? (
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <Input
-                              type="number"
-                              className="w-20 h-8 text-sm"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={handleKeyPress}
-                              autoFocus
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-green-600"
-                              onClick={handleSaveEdit}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-red-600"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      ) : (
-                        <TableCell
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => handleCellClick(rowIndex, "days", record.days?.toString() || "")}
-                        >
-                          {record.days || "-"}
-                        </TableCell>
-                      )}
-                      
-                      {editableFields.includes("description") && 
-                       editingCell.rowIndex === rowIndex && 
-                       editingCell.field === "description" ? (
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <Input
-                              className="w-40 h-8 text-sm"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={handleKeyPress}
-                              autoFocus
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-green-600"
-                              onClick={handleSaveEdit}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-red-600"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      ) : (
-                        <TableCell
-                          className="cursor-pointer hover:bg-gray-50 max-w-[200px] truncate"
-                          onClick={() => handleCellClick(rowIndex, "description", record.description || "")}
-                        >
-                          {record.description || "-"}
-                        </TableCell>
-                      )}
-                      
-                      {editableFields.includes("details") && 
-                       editingCell.rowIndex === rowIndex && 
-                       editingCell.field === "details" ? (
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <Input
-                              className="w-40 h-8 text-sm"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={handleKeyPress}
-                              autoFocus
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-green-600"
-                              onClick={handleSaveEdit}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-red-600"
-                              onClick={handleCancelEdit}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      ) : (
-                        <TableCell
-                          className="cursor-pointer hover:bg-gray-50 max-w-[200px] truncate"
-                          onClick={() => handleCellClick(rowIndex, "details", record.details || "")}
-                        >
-                          {record.details || "-"}
-                        </TableCell>
-                      )}
-                      
-                      <TableCell>
-                        {record.approved ? (
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Approved</Badge>
-                        ) : (
-                          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
-                        )}
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
-          </div>
-          <CardFooter className="bg-gray-50 px-6 py-3 justify-between">
-            <div className="text-sm text-gray-500">
-              {filteredRecords.length > 0 ? (
-                <>Showing {filteredRecords.length} records</>
-              ) : (
-                <>No records to display</>
-              )}
-            </div>
-            {filteredRecords.length > 0 && (
-              <Button variant="outline">
-                <Save className="mr-2 h-4 w-4" />
-                Save All Changes
-              </Button>
-            )}
-          </CardFooter>
+          </CardContent>
         </Card>
+        
+        <div className="border-t pt-4 text-sm text-gray-500">
+          <p>
+            Click on any cell to edit its value. Press Enter to save or Escape to cancel.
+          </p>
+        </div>
       </div>
-    </>
+    </div>
   );
-}
+};
+
+export default RecordsEditor;

@@ -162,6 +162,11 @@ export default function Sidebar() {
           label="Reports" 
         />
         <NavItem 
+          icon={FileText} 
+          path="/records-editor" 
+          label="Records Editor" 
+        />
+        <NavItem 
           icon={Activity} 
           path="/activity" 
           label="Activity Logs" 
