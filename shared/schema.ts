@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, real, date, pgEnum, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // Enums
 export const recordTypeEnum = pgEnum('record_type', [
