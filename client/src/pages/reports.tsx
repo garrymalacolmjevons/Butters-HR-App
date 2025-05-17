@@ -63,6 +63,60 @@ export default function ReportsPage() {
     queryKey: ['/api/export-records'],
   });
 
+  // State for preview data
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState<boolean>(false);
+
+  // Preview report mutation
+  const previewReport = async () => {
+    if (!startDate || !endDate) {
+      toast({
+        title: "Error",
+        description: "Please select both start and end dates",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPreview(true);
+    try {
+      // Format dates for API
+      const formattedStartDate = format(startDate, "yyyy-MM-dd");
+      const formattedEndDate = format(endDate, "yyyy-MM-dd");
+      
+      const params = new URLSearchParams();
+      params.append("startDate", formattedStartDate);
+      params.append("endDate", formattedEndDate);
+      params.append("recordType", payrollType);
+      params.append("includeUnapproved", includeUnapproved.toString());
+      
+      // Make API request to generate preview
+      const result = await apiRequest("POST", `/api/reports/preview?${params.toString()}`);
+      
+      if (result.success) {
+        setPreviewData(result.data || []);
+        setTotalRecords(result.totalRecords || 0);
+        setShowPreview(true);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to generate report preview",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate report preview",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
   // Generate report mutation
   const generateReport = useMutation({
     mutationFn: async () => {
@@ -232,6 +286,51 @@ export default function ReportsPage() {
         />
       </div>
       
+      {/* Preview Data Section - Only shown when preview data is available */}
+      {showPreview && previewData.length > 0 && (
+        <div className="border-2 border-amber-400/20 rounded-md shadow-lg mb-6 overflow-x-auto">
+          <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-4 py-3 text-white">
+            <h2 className="text-xl font-bold">Report Preview</h2>
+            <p className="text-gray-300 text-sm">
+              Showing {previewData.length} of {totalRecords} records. {totalRecords > 100 ? "Download the full report to see all records." : ""}
+            </p>
+          </div>
+          
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee Code</TableHead>
+                <TableHead>Employee Name</TableHead>
+                <TableHead>Record Type</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {previewData.map((record, index) => (
+                <TableRow key={index}>
+                  <TableCell>{record.employeeCode || '-'}</TableCell>
+                  <TableCell>{record.employeeName || '-'}</TableCell>
+                  <TableCell>{record.recordType || '-'}</TableCell>
+                  <TableCell>{record.date ? new Date(record.date).toLocaleDateString() : '-'}</TableCell>
+                  <TableCell>{typeof record.amount === 'number' ? `R${record.amount.toFixed(2)}` : '-'}</TableCell>
+                  <TableCell className="max-w-[200px] truncate">{record.description || '-'}</TableCell>
+                  <TableCell>
+                    {record.approved ? (
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Approved</Badge>
+                    ) : (
+                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-2 border-amber-400/20 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white">
@@ -359,24 +458,51 @@ export default function ReportsPage() {
               </label>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col space-y-4">
             <Button
-              onClick={() => generateReport.mutate()}
-              disabled={!startDate || !endDate || generateReport.isPending}
+              onClick={previewReport}
+              disabled={!startDate || !endDate || isGeneratingPreview}
               className="w-full bg-amber-500 hover:bg-amber-600 text-black"
             >
-              {generateReport.isPending ? (
+              {isGeneratingPreview ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  Generating Preview...
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Generate & Download Report
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  Preview Report Data
                 </>
               )}
             </Button>
+            
+            {showPreview && previewData.length > 0 && (
+              <Button
+                onClick={() => generateReport.mutate()}
+                disabled={generateReport.isPending}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                {generateReport.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Report ({reportFormat.toUpperCase()})
+                  </>
+                )}
+              </Button>
+            )}
+            
+            {showPreview && previewData.length === 0 && (
+              <div className="text-center py-2 px-4 bg-yellow-100 border border-yellow-300 rounded-md">
+                <p className="text-yellow-800 font-medium">No data found for the selected criteria.</p>
+                <p className="text-sm text-yellow-700 mt-1">Try adjusting your date range or record type.</p>
+              </div>
+            )}
           </CardFooter>
         </Card>
         
