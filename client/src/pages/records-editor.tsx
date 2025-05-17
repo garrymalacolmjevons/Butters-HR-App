@@ -3,8 +3,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/query-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parse, isAfter, isBefore, isEqual } from "date-fns";
+import { Download, FileSpreadsheet } from "lucide-react";
 
 // Define record types
 const RECORD_TYPES = [
@@ -30,6 +32,7 @@ interface RecordData {
   date: string;
   employeeId: number;
   employeeName?: string;
+  employeeCode?: string;
   recordType: string;
   amount: number | null;
   details: string;
@@ -50,7 +53,9 @@ const RecordsEditor = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [dateFilter, setDateFilter] = useState<string>("");
+  const [startDateFilter, setStartDateFilter] = useState<string>("");
+  const [endDateFilter, setEndDateFilter] = useState<string>("");
+  const [employeeCodeFilter, setEmployeeCodeFilter] = useState<string>("");
   const [editableCell, setEditableCell] = useState<EditableCell | null>(null);
   const [editValue, setEditValue] = useState<string>("");
 
@@ -89,6 +94,55 @@ const RecordsEditor = () => {
     },
   });
 
+  // Function to export filtered records to CSV
+  const exportToCSV = () => {
+    if (filteredRecords.length === 0) {
+      toast({
+        title: "No records to export",
+        description: "There are no records matching your filter criteria to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare CSV content
+    const headers = ["ID", "Date", "Employee Name", "Employee Code", "Record Type", "Details", "Amount", "Status", "Created At"];
+    
+    let csvContent = headers.join(",") + "\n";
+    
+    filteredRecords.forEach(record => {
+      const row = [
+        record.id,
+        record.date,
+        record.employeeName || "",
+        record.employeeCode || "",
+        record.recordType,
+        `"${record.details.replace(/"/g, '""')}"`, // Escape quotes in details
+        record.amount !== null ? record.amount : "",
+        record.status,
+        record.createdAt
+      ].join(",");
+      
+      csvContent += row + "\n";
+    });
+    
+    // Create and download the CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `records_export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    
+    toast({
+      title: "Export successful",
+      description: `Exported ${filteredRecords.length} records to CSV file.`,
+      variant: "success",
+    });
+  };
+
   // Apply all filters when data or filter criteria change
   useEffect(() => {
     if (data) {
@@ -99,7 +153,8 @@ const RecordsEditor = () => {
       if (searchTerm) {
         filtered = filtered.filter(record => 
           record.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.details?.toLowerCase().includes(searchTerm.toLowerCase())
+          record.details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.employeeCode?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
       
@@ -113,14 +168,42 @@ const RecordsEditor = () => {
         filtered = filtered.filter(record => record.status === statusFilter);
       }
       
-      // Apply date filter
-      if (dateFilter) {
-        filtered = filtered.filter(record => record.date === dateFilter);
+      // Apply employee code filter
+      if (employeeCodeFilter) {
+        filtered = filtered.filter(record => 
+          record.employeeCode?.toLowerCase().includes(employeeCodeFilter.toLowerCase())
+        );
+      }
+      
+      // Apply date range filter
+      if (startDateFilter && endDateFilter) {
+        const startDate = parse(startDateFilter, 'yyyy-MM-dd', new Date());
+        const endDate = parse(endDateFilter, 'yyyy-MM-dd', new Date());
+        
+        filtered = filtered.filter(record => {
+          const recordDate = parse(record.date, 'yyyy-MM-dd', new Date());
+          return (isAfter(recordDate, startDate) || isEqual(recordDate, startDate)) && 
+                 (isBefore(recordDate, endDate) || isEqual(recordDate, endDate));
+        });
+      } else if (startDateFilter) {
+        const startDate = parse(startDateFilter, 'yyyy-MM-dd', new Date());
+        
+        filtered = filtered.filter(record => {
+          const recordDate = parse(record.date, 'yyyy-MM-dd', new Date());
+          return isAfter(recordDate, startDate) || isEqual(recordDate, startDate);
+        });
+      } else if (endDateFilter) {
+        const endDate = parse(endDateFilter, 'yyyy-MM-dd', new Date());
+        
+        filtered = filtered.filter(record => {
+          const recordDate = parse(record.date, 'yyyy-MM-dd', new Date());
+          return isBefore(recordDate, endDate) || isEqual(recordDate, endDate);
+        });
       }
       
       setFilteredRecords(filtered);
     }
-  }, [data, searchTerm, recordTypeFilter, statusFilter, dateFilter]);
+  }, [data, searchTerm, recordTypeFilter, statusFilter, startDateFilter, endDateFilter, employeeCodeFilter]);
 
   // Handle starting cell edit
   const handleCellEdit = (rowIndex: number, columnId: string, value: any) => {
@@ -218,14 +301,24 @@ const RecordsEditor = () => {
         </CardHeader>
         <CardContent>
           {/* Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             <div>
               <label className="text-sm font-medium">Search</label>
               <Input
                 type="text"
-                placeholder="Search by employee or details..."
+                placeholder="Search by name or details..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Employee Code</label>
+              <Input
+                type="text"
+                placeholder="Filter by employee code..."
+                value={employeeCodeFilter}
+                onChange={(e) => setEmployeeCodeFilter(e.target.value)}
                 className="w-full"
               />
             </div>
@@ -256,14 +349,35 @@ const RecordsEditor = () => {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium">Date</label>
+              <label className="text-sm font-medium">Start Date</label>
               <Input
                 type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                value={startDateFilter}
+                onChange={(e) => setStartDateFilter(e.target.value)}
                 className="w-full"
               />
             </div>
+            <div>
+              <label className="text-sm font-medium">End Date</label>
+              <Input
+                type="date"
+                value={endDateFilter}
+                onChange={(e) => setEndDateFilter(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+          
+          {/* Export Button */}
+          <div className="flex justify-end mb-4">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2 bg-amber-50 border-amber-500 hover:bg-amber-100 text-amber-800"
+              onClick={exportToCSV}
+            >
+              <FileSpreadsheet size={16} />
+              Export to CSV
+            </Button>
           </div>
 
           {/* Records Table */}
@@ -274,6 +388,7 @@ const RecordsEditor = () => {
                   <th className="p-2 border">ID</th>
                   <th className="p-2 border">Date</th>
                   <th className="p-2 border">Employee</th>
+                  <th className="p-2 border">Employee Code</th>
                   <th className="p-2 border">Record Type</th>
                   <th className="p-2 border">Details</th>
                   <th className="p-2 border">Amount</th>
