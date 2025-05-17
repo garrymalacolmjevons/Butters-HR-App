@@ -422,6 +422,7 @@ const RecordsEditor = () => {
                         )}
                       </td>
                       <td className="p-2 border">{record.employeeName}</td>
+                      <td className="p-2 border">{record.employeeCode || "-"}</td>
                       <td className="p-2 border">
                         {editableCell?.rowIndex === rowIndex && editableCell?.columnId === 'recordType' ? (
                           <select
