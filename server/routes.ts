@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import express from "express";
 import session from "express-session";
 import passport from "passport";
@@ -652,6 +653,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof ZodError) {
         return res.status(400).json({ error: fromZodError(error).message });
       }
+      next(error);
+    }
+  });
+
+  // Track exported records
+  app.post("/api/records/track-export", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const { recordIds } = req.body;
+      
+      if (!Array.isArray(recordIds) || recordIds.length === 0) {
+        return res.status(400).json({ error: "Invalid record IDs" });
+      }
+      
+      // Create tracking records for each exported record
+      const now = new Date();
+      const values = recordIds.map(recordId => 
+        `(${recordId}, ${userId}, '${now.toISOString()}')`
+      ).join(', ');
+      
+      // Insert the tracking records
+      const query = `
+        INSERT INTO exported_record_tracking (record_id, exported_by, exported_at)
+        VALUES ${values}
+        ON CONFLICT (record_id) DO UPDATE
+        SET exported_at = '${now.toISOString()}', exported_by = ${userId}
+      `;
+      
+      await db.execute(query);
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Exported Records",
+        details: `Exported ${recordIds.length} records to CSV`
+      });
+      
+      res.json({ success: true, message: `Successfully tracked ${recordIds.length} exported records` });
+    } catch (error) {
+      console.error('Error tracking exported records:', error);
       next(error);
     }
   });

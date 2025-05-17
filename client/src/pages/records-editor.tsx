@@ -95,6 +95,22 @@ const RecordsEditor = () => {
     },
   });
 
+  // Track exported records mutation
+  const trackExportedRecordsMutation = useMutation({
+    mutationFn: async (recordIds: number[]) => {
+      return await apiRequest('/api/records/track-export', {
+        method: 'POST',
+        body: JSON.stringify({ recordIds }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll-records"] });
+    },
+    onError: (error) => {
+      console.error('Failed to track exported records:', error);
+    },
+  });
+
   // Function to export filtered records to CSV
   const exportToCSV = () => {
     if (filteredRecords.length === 0) {
@@ -111,7 +127,12 @@ const RecordsEditor = () => {
     
     let csvContent = headers.join(",") + "\n";
     
+    // Track which record IDs we're exporting
+    const exportedIds: number[] = [];
+    
     filteredRecords.forEach(record => {
+      exportedIds.push(record.id);
+      
       const row = [
         record.id,
         record.date,
@@ -136,6 +157,9 @@ const RecordsEditor = () => {
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);
+    
+    // Mark these records as exported
+    trackExportedRecordsMutation.mutate(exportedIds);
     
     toast({
       title: "Export successful",
@@ -400,12 +424,13 @@ const RecordsEditor = () => {
               <tbody>
                 {filteredRecords.length > 0 ? (
                   filteredRecords.map((record, rowIndex) => (
-                    <tr key={record.id} className={`hover:bg-gray-50 ${record.hasBeenExported ? "bg-amber-100" : ""}`}>
+                    <tr key={record.id} 
+                      className={`hover:bg-gray-50 ${record.hasBeenExported ? "bg-amber-100 border-amber-300" : ""}`}>
                       <td className="p-2 border">
                         <div className="flex items-center gap-1">
                           <span>{record.id}</span>
                           {record.hasBeenExported && (
-                            <span className="text-xs text-amber-800 font-medium">Exported</span>
+                            <span className="text-xs bg-amber-200 text-amber-800 font-medium px-1 py-0.5 rounded">Exported</span>
                           )}
                         </div>
                       </td>
