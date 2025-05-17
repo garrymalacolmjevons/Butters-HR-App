@@ -669,7 +669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate a unique filename for the export
       const timestamp = new Date().getTime();
-      const fileName = `payroll-${recordType}-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}-${timestamp}`;
+      const filename = `payroll-${recordType}-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}-${timestamp}`;
       
       // Ensure the exports directory exists
       if (!fs.existsSync('public/exports')) {
