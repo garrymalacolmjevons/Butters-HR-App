@@ -622,6 +622,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Report Preview Route
+  app.post("/api/reports/preview", isAuthenticated, async (req, res, next) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const recordType = req.query.recordType as string || 'all';
+      const includeUnapproved = (req.query.includeUnapproved as string) === 'true';
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'Start and end dates are required' });
+      }
+
+      // Get report data with the specific date range
+      let reportData: any[] = [];
+      
+      // For payroll records, we need to get data for each type
+      const options = {
+        startDate,
+        endDate,
+        includeUnapproved
+      };
+      
+      if (recordType === 'all') {
+        // Get all types of records
+        reportData = await storage.getReportData(options);
+      } else if (recordType === 'earnings') {
+        // Get all earnings types
+        reportData = await storage.getReportData({
+          ...options,
+          recordType: 'earnings'
+        });
+      } else {
+        // Get specific record type
+        reportData = await storage.getReportData({
+          ...options,
+          recordType
+        });
+      }
+      
+      // Return formatted data for preview (limiting to 100 records for performance)
+      return res.json({
+        success: true,
+        data: reportData.slice(0, 100),
+        totalRecords: reportData.length,
+        previewCount: Math.min(reportData.length, 100)
+      });
+    } catch (error) {
+      console.error('Error generating report preview:', error);
+      res.status(500).json({ error: 'Failed to generate report preview' });
+    }
+  });
+
   // Report Generation Routes
   app.post("/api/reports/generate", isAuthenticated, async (req, res, next) => {
     try {
