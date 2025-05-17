@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { format, parse, isAfter, isBefore, isEqual } from "date-fns";
 import { Download, FileSpreadsheet } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 // Define record types
 const RECORD_TYPES = [
@@ -321,8 +322,12 @@ const RecordsEditor = () => {
   return (
     <div className="container mx-auto p-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Records Editor</CardTitle>
+          <RefreshButton
+            queryKeys={["/api/payroll-records"]}
+            label="Refresh Records"
+          />
         </CardHeader>
         <CardContent>
           {/* Filter Controls */}
