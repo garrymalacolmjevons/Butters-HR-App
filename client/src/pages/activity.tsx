@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatTimeAgo } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, User, FileText, Clock } from "lucide-react";
+import { User, FileText, Clock } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 interface ActivityLog {
   id: number;
@@ -20,10 +21,6 @@ export default function ActivityLogPage() {
     queryKey: ["/api/activity-logs"],
   });
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
-  };
-
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -31,14 +28,10 @@ export default function ActivityLogPage() {
           <img src="/logo.jpg" alt="Hi-Tec Security Logo" className="h-10 w-auto" />
           <h1 className="text-2xl font-bold text-primary">Activity Logs</h1>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          className="flex items-center gap-1"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </Button>
+        <RefreshButton
+          queryKeys={["/api/activity-logs"]}
+          label="Refresh Logs"
+        />
       </div>
 
       <Card className="bg-white">
