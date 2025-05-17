@@ -721,10 +721,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
         
         // Parse to CSV using the imported Json2csvParser
-        const json2csvParser = new Json2csvParser({
-          fields: Object.keys(csvData[0] || {}) // Define fields based on the first record
-        });
-        const csv = json2csvParser.parse(csvData);
+        let csv = '';
+        
+        if (csvData.length === 0) {
+          // If no data, create a CSV with just headers
+          const headers = [
+            'Employee Code', 'Employee Name', 'Record Type', 'Date', 
+            'Amount', 'Description', 'Hours', 'Rate', 'Approved'
+          ];
+          csv = headers.join(',');
+        } else {
+          // If we have data, parse it normally
+          const json2csvParser = new Json2csvParser({
+            fields: Object.keys(csvData[0])
+          });
+          csv = json2csvParser.parse(csvData);
+        }
         
         // Write file
         fs.writeFileSync(filePath, csv);
