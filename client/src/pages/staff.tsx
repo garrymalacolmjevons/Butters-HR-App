@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export default function StaffPage() {
   const { toast } = useToast();

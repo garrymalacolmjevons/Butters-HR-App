@@ -5,21 +5,26 @@ import { Users, FileText, BanknoteIcon, DollarSign, Building, TrendingUpIcon } f
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { queryClient } from "@/lib/queryClient";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export default function Dashboard() {
   const { data: dashboardData, isLoading: isLoadingDashboard } = useQuery({
     queryKey: ["/api/dashboard"],
   });
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-  };
+  // This function is no longer needed as we're using the RefreshButton component
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <img src="/logo.jpg" alt="Hi-Tec Security Logo" className="h-10 w-auto" />
-        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <img src="/logo.jpg" alt="Hi-Tec Security Logo" className="h-10 w-auto" />
+          <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+        </div>
+        <RefreshButton 
+          queryKeys={["/api/dashboard"]} 
+          label="Refresh Dashboard" 
+        />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
