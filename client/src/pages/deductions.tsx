@@ -78,9 +78,7 @@ export default function Deductions() {
     .filter(record => record.company === "Butters" && record.amount < 0)
     .reduce((sum, record) => sum + Math.abs(record.amount), 0);
   
-  const totalMakanaDeductions = deductionRecords
-    .filter(record => record.company === "Makana" && record.amount < 0)
-    .reduce((sum, record) => sum + Math.abs(record.amount), 0);
+  
   
   const recurringDeductions = deductionRecords
     .filter(record => record.recurring && record.amount < 0)
@@ -214,7 +212,7 @@ export default function Deductions() {
             </div>
             <p className="text-3xl font-bold">{formatCurrency(totalDeductions)}</p>
             <div className="text-sm text-neutral-500 mt-2">
-              <span className="text-secondary">Butters: {formatCurrency(totalButtersDeductions)}</span> | <span className="text-primary">Makana: {formatCurrency(totalMakanaDeductions)}</span>
+              <span className="text-secondary">Butters: {formatCurrency(totalButtersDeductions)}</span>
             </div>
           </CardContent>
         </Card>
@@ -242,8 +240,6 @@ export default function Deductions() {
             <div className="text-sm text-neutral-500 mt-2">
               <span className="text-secondary">
                 Butters: {deductionRecords.filter(r => r.company === "Butters").length}
-              </span> | <span className="text-primary">
-                Makana: {deductionRecords.filter(r => r.company === "Makana").length}
               </span>
             </div>
           </CardContent>
@@ -262,7 +258,6 @@ export default function Deductions() {
                 <SelectContent>
                   <SelectItem value="All Companies">All Companies</SelectItem>
                   <SelectItem value="Butters">Butters</SelectItem>
-                  <SelectItem value="Makana">Makana</SelectItem>
                 </SelectContent>
               </Select>
               
