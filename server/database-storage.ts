@@ -300,18 +300,24 @@ export class DatabaseStorage implements IStorage {
 
   // Export Records methods
   async getExportRecords(filter?: { userId?: number }): Promise<(ExportRecord & { userName: string })[]> {
-    const exportWithUserQuery = db.select({
-      ...exportRecords,
-      userName: users.fullName
-    })
-    .from(exportRecords)
-    .leftJoin(users, eq(exportRecords.userId, users.id));
-    
-    if (filter?.userId) {
-      return await exportWithUserQuery.where(eq(exportRecords.userId, filter.userId));
+    try {
+      // Using a raw SQL query to avoid schema mismatch issues
+      const query = `
+        SELECT er.*, u.full_name as user_name
+        FROM export_records er
+        LEFT JOIN users u ON er.user_id = u.id
+        ${filter?.userId ? `WHERE er.user_id = $1` : ''}
+        ORDER BY er.created_at DESC
+      `;
+      
+      const params = filter?.userId ? [filter.userId] : [];
+      const result = await db.execute(query, params);
+      
+      return result.rows as (ExportRecord & { userName: string })[];
+    } catch (error) {
+      console.error('Error fetching export records:', error);
+      return [];
     }
-    
-    return await exportWithUserQuery;
   }
 
   async createExportRecord(exportRecord: InsertExportRecord): Promise<ExportRecord> {
