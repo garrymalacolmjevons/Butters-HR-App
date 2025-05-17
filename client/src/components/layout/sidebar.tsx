@@ -107,9 +107,9 @@ export default function Sidebar() {
       <div className="p-3 flex justify-between items-center">
         <div className="flex items-center">
           {expanded ? (
-            <div className="text-lg font-semibold text-primary">Hi-Tec Security</div>
+            <div className="text-lg font-semibold text-primary">Butters Security</div>
           ) : (
-            <div className="text-lg font-semibold text-primary">HTS</div>
+            <div className="text-lg font-semibold text-primary">BS</div>
           )}
         </div>
         <Button 

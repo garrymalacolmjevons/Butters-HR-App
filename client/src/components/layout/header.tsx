@@ -26,7 +26,7 @@ export default function Header({ user }: HeaderProps) {
   return (
     <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800 h-16 shadow-lg px-4">
       <div className="flex items-center">
-        <div className="text-primary text-2xl font-bold">Hi-Tec Security HR Portal</div>
+        <div className="text-primary text-2xl font-bold">Butters Security HR Portal</div>
       </div>
       <div className="flex items-center space-x-4">
         <DropdownMenu>
