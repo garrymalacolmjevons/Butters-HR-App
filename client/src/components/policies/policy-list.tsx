@@ -250,13 +250,6 @@ export function PolicyList({ employeeId }: PolicyListProps) {
             </CardDescription>
           </div>
           <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowImportModal(true)}
-            >
-              <FileUp className="mr-2 h-4 w-4" />
-              Import Policies
-            </Button>
             <Button onClick={() => setShowForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Policy

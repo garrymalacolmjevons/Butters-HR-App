@@ -103,7 +103,7 @@ const PolicySpreadsheet = () => {
     },
   });
 
-  // Function to export filtered policies to CSV
+  // Function to export filtered policies to CSV with combined totals per employee
   const exportToCSV = () => {
     if (filteredPolicies.length === 0) {
       toast({
@@ -114,23 +114,43 @@ const PolicySpreadsheet = () => {
       return;
     }
 
-    // Prepare CSV content
-    const headers = ["ID", "Employee Name", "Employee Code", "Company", "Policy Number", "Amount", "Start Date", "End Date", "Status", "Created At"];
+    // Prepare CSV content with the new format for payroll imports
+    const headers = ["Employee Name", "Employee Code", "Total Policy Amount", "Status"];
     
     let csvContent = headers.join(",") + "\n";
     
+    // Group policies by employee ID and calculate total amount
+    const employeeTotals = new Map<string, { 
+      name: string, 
+      code: string, 
+      totalAmount: number,
+      status: string 
+    }>();
+    
+    // First pass: group and calculate
     filteredPolicies.forEach(policy => {
+      const employeeKey = policy.employeeCode || policy.employeeId.toString();
+      
+      if (!employeeTotals.has(employeeKey)) {
+        employeeTotals.set(employeeKey, {
+          name: policy.employeeName || "",
+          code: policy.employeeCode || "",
+          totalAmount: 0,
+          status: policy.status
+        });
+      }
+      
+      const employee = employeeTotals.get(employeeKey)!;
+      employee.totalAmount += policy.amount;
+    });
+    
+    // Second pass: create CSV rows
+    employeeTotals.forEach((data) => {
       const row = [
-        policy.id,
-        policy.employeeName || "",
-        policy.employeeCode || "",
-        policy.company,
-        policy.policyNumber,
-        policy.amount,
-        policy.startDate,
-        policy.endDate || "",
-        policy.status,
-        policy.createdAt
+        data.name,
+        data.code,
+        data.totalAmount.toFixed(2),
+        data.status
       ].join(",");
       
       csvContent += row + "\n";
@@ -143,14 +163,14 @@ const PolicySpreadsheet = () => {
     // Create a link to download the CSV
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `insurance_policies_export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute('download', `insurance_policies_totals_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     toast({
       title: "Export complete",
-      description: `${filteredPolicies.length} policies have been exported to CSV.`,
+      description: `Combined policy totals for ${employeeTotals.size} employees have been exported to CSV.`,
     });
   };
 
@@ -466,7 +486,7 @@ const PolicySpreadsheet = () => {
                 filteredPolicies.map((policy, rowIndex) => (
                   <tr key={policy.id} className="border-t hover:bg-muted/50">
                     <td className="p-2">{policy.id}</td>
-                    <td className="p-2">{policy.employeeName}</td>
+                    <td className="p-2">{policy.employeeName} {policy.employeeCode ? `(${policy.employeeCode})` : ''}</td>
                     <td className="p-2">{policy.employeeCode}</td>
                     <td className="p-2">{policy.company}</td>
                     
