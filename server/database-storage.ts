@@ -321,13 +321,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createExportRecord(exportRecord: InsertExportRecord): Promise<ExportRecord> {
-    const [newRecord] = await db.insert(exportRecords)
-      .values({
-        ...exportRecord,
-        createdAt: new Date()
-      })
-      .returning();
-    return newRecord;
+    try {
+      // Using a raw SQL query to avoid schema mismatch issues
+      const query = `
+        INSERT INTO export_records 
+        (user_id, export_type, file_url, file_format, created_at, report_name, month) 
+        VALUES 
+        ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `;
+      
+      const params = [
+        exportRecord.userId,
+        exportRecord.exportType,
+        exportRecord.fileUrl,
+        exportRecord.fileFormat || 'csv',
+        new Date(),
+        `${exportRecord.exportType} Report`,
+        exportRecord.startDate
+      ];
+      
+      const result = await db.execute(query, params);
+      return result.rows[0] as ExportRecord;
+    } catch (error) {
+      console.error('Error creating export record:', error);
+      throw error;
+    }
   }
 
   // Activity Logs methods
