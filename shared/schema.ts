@@ -1,7 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, real, date, pgEnum, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+import { relations as defineRelations } from "drizzle-orm";
 
 // Enums
 export const recordTypeEnum = pgEnum('record_type', [
@@ -439,7 +439,7 @@ export const maternityRecords = pgTable("maternity_records", {
 });
 
 // Maternity records relations
-export const maternityRecordsRelations = relations(maternityRecords, ({ one }) => ({
+export const maternityRecordsRelations = defineRelations(maternityRecords, ({ one }) => ({
   employee: one(employees, {
     fields: [maternityRecords.employeeId],
     references: [employees.id],
