@@ -721,7 +721,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
         
         // Parse to CSV using the imported Json2csvParser
-        const json2csvParser = new Json2csvParser();
+        const json2csvParser = new Json2csvParser({
+          fields: Object.keys(csvData[0] || {}) // Define fields based on the first record
+        });
         const csv = json2csvParser.parse(csvData);
         
         // Write file
