@@ -156,11 +156,7 @@ export default function Sidebar() {
           path="/policies" 
           label="Policies" 
         />
-        <NavItem 
-          icon={FileSpreadsheet} 
-          path="/reports" 
-          label="Reports" 
-        />
+        {/* Reports button removed as requested */}
         <NavItem 
           icon={FileText} 
           path="/records-editor" 

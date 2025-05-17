@@ -12,7 +12,7 @@ import Leave from "@/pages/leave";
 import Deductions from "@/pages/deductions";
 import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
-import Reports from "@/pages/reports";
+// Reports import removed
 import Settings from "@/pages/settings";
 import ImportPage from "@/pages/import";
 import StaffPage from "@/pages/staff";
@@ -108,13 +108,7 @@ function Router() {
           </Layout>
         )} />
       </Route>
-      <Route path="/reports">
-        <ProtectedRoute component={() => (
-          <Layout>
-            <Reports />
-          </Layout>
-        )} />
-      </Route>
+      {/* Reports route removed */}
       <Route path="/policies">
         <ProtectedRoute component={() => (
           <Layout>
