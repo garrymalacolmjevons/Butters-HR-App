@@ -313,7 +313,7 @@ const RecordsEditor = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Employee Code</label>
+              <label className="text-sm font-medium">Emp. Code</label>
               <Input
                 type="text"
                 placeholder="Filter by employee code..."
@@ -388,7 +388,7 @@ const RecordsEditor = () => {
                   <th className="p-2 border">ID</th>
                   <th className="p-2 border">Date</th>
                   <th className="p-2 border">Employee</th>
-                  <th className="p-2 border">Employee Code</th>
+                  <th className="p-2 border">Emp. Code</th>
                   <th className="p-2 border">Record Type</th>
                   <th className="p-2 border">Details</th>
                   <th className="p-2 border">Amount</th>
