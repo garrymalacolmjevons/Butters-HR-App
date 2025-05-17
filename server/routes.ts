@@ -463,16 +463,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const records = await storage.getPayrollRecords(filter);
       
-      // Get list of exported record IDs
-      const exportedRecordIds = await storage.getExportedRecordIds();
+      // Get list of exported record IDs from the tracking table
+      const exportedResult = await db.execute(`
+        SELECT DISTINCT record_id FROM exported_record_tracking
+      `);
       
-      // Mark records that have been exported
+      // Convert to a Set for efficient lookup
+      const exportedIds = new Set(exportedResult.rows.map((row: any) => Number(row.record_id)));
+      
+      // Add hasBeenExported flag to each record
       const recordsWithExportStatus = records.map(record => ({
         ...record,
-        hasBeenExported: exportedRecordIds.includes(record.id)
+        hasBeenExported: exportedIds.has(record.id)
       }));
       
-      res.json(recordsWithExportStatus);
+      // Return the records with export status
+      return res.json(recordsWithExportStatus);
     } catch (error) {
       next(error);
     }
@@ -876,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Record the exported record IDs for tracking
-          await storage.createExportRecord({
+          const exportRecord = await storage.createExportRecord({
             userId,
             startDate,
             endDate,
@@ -887,6 +893,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             recordCount: records.length,
             exportedRecordIds: records.map(record => record.id) // Track which records were exported
           });
+          
+          // Directly track records using a more direct approach
+          try {
+            for (const record of records) {
+              await db.execute(`
+                INSERT INTO exported_record_tracking (record_id, exported_by, exported_at)
+                VALUES (${record.id}, ${userId}, NOW())
+                ON CONFLICT (record_id) DO UPDATE
+                SET exported_at = NOW(), exported_by = ${userId}
+              `);
+            }
+          } catch (trackingError) {
+            console.error('Direct tracking error:', trackingError);
+          }
         } catch (error) {
           console.error('Error logging activity:', error);
         }
