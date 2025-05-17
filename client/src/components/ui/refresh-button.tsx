@@ -1,41 +1,38 @@
+import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { useState } from "react";
-import { toast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/query-client";
+import { useToast } from "@/hooks/use-toast";
 
-interface RefreshButtonProps {
-  queryKeys?: string[];
-  label?: string;
+type RefreshButtonProps = {
+  queryKey?: string | string[];
   className?: string;
-  onRefresh?: () => Promise<void>;
-}
+};
 
-export function RefreshButton({ 
-  queryKeys = [], 
-  label = "Refresh", 
-  className = "",
-  onRefresh
-}: RefreshButtonProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
+export function RefreshButton({ queryKey, className }: RefreshButtonProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    
     try {
-      if (onRefresh) {
-        await onRefresh();
-      } else if (queryKeys.length > 0) {
-        // Invalidate all the query keys to force a refresh
-        queryKeys.forEach(key => {
-          queryClient.invalidateQueries({ queryKey: [key] });
-        });
+      setIsRefreshing(true);
+      
+      if (queryKey) {
+        // If specific query keys are provided, refresh only those
+        if (Array.isArray(queryKey)) {
+          await Promise.all(queryKey.map(key => queryClient.invalidateQueries({ queryKey: [key] })));
+        } else {
+          await queryClient.invalidateQueries({ queryKey: [queryKey] });
+        }
+      } else {
+        // Otherwise refresh all queries
+        await queryClient.invalidateQueries();
       }
       
       toast({
-        title: "Refreshed",
-        description: "Data has been refreshed successfully.",
-        variant: "default",
+        title: "Data refreshed",
+        description: "The data has been refreshed successfully.",
       });
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -50,15 +47,15 @@ export function RefreshButton({
   };
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleRefresh}
+    <Button 
+      variant="outline" 
+      size="sm" 
+      onClick={handleRefresh} 
       disabled={isRefreshing}
-      className={`flex items-center gap-1 ${className}`}
+      className={className}
     >
-      <RefreshCw size={16} className={`${isRefreshing ? "animate-spin" : ""}`} />
-      {label}
+      <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+      Refresh
     </Button>
   );
 }

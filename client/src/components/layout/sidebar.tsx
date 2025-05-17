@@ -192,6 +192,11 @@ export default function Sidebar() {
           label="Settings" 
         />
         <NavItem 
+          icon={CreditCard} 
+          path="/rates" 
+          label="Rates" 
+        />
+        <NavItem 
           icon={LogOut} 
           label="Logout" 
           onClick={handleLogout} 
