@@ -56,7 +56,7 @@ const RecordsEditor = () => {
 
   // Fetch records data
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["/api/payroll/records"],
+    queryKey: ["/api/payroll-records"],
     select: (data: RecordData[]) => data.map(record => ({
       ...record,
       date: format(new Date(record.date), 'yyyy-MM-dd'),
@@ -67,17 +67,13 @@ const RecordsEditor = () => {
   // Update record mutation
   const updateRecordMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: Partial<RecordData> }) => {
-      const response = await apiRequest(`/api/payroll/records/${id}`, {
+      return await apiRequest(`/api/payroll-records/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       });
-      if (!response.ok) {
-        throw new Error('Failed to update record');
-      }
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payroll/records"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll-records"] });
       toast({
         title: "Record updated",
         description: "The record has been successfully updated.",

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "./queryClient";
+import { apiRequest } from "./query-client";
 import { useToast } from "@/hooks/use-toast";
 
 interface User {
@@ -46,8 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async ({ username, password }: { username: string; password: string }) => {
-      const res = await apiRequest("POST", "/api/auth/login", { username, password });
-      return res.json();
+      return await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
     },
     onSuccess: (data) => {
       setUser(data);
@@ -67,7 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/auth/logout");
+      return await apiRequest("/api/auth/logout", {
+        method: "POST",
+      });
     },
     onSuccess: () => {
       setUser(null);
