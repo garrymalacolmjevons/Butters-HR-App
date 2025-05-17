@@ -20,6 +20,7 @@ import Policies from "@/pages/policies";
 import EarningsPage from "@/pages/earnings";
 import ActivityLogPage from "@/pages/activity";
 import RecordsEditorPage from "@/pages/records-editor";
+import MaternityTracker from "@/pages/maternity-tracker";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -137,6 +138,15 @@ function Router() {
         <ProtectedRoute component={() => (
           <Layout>
             <RecordsEditorPage />
+          </Layout>
+        )} />
+      </Route>
+      
+      {/* Maternity Tracker Page */}
+      <Route path="/maternity-tracker">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <MaternityTracker />
           </Layout>
         )} />
       </Route>

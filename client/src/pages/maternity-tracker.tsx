@@ -1,404 +1,392 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
-import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import React, { useState, useEffect } from 'react';
+import { 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Plus, RefreshCw } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
-import { RefreshButton } from "@/components/ui/refresh-button";
-import { Label } from "@/components/ui/label";
-import { DialogContent, DialogFooter, DialogHeader, DialogTitle, Dialog } from "@/components/ui/dialog";
-
-// Types
-interface MaternityRecord {
-  id: number;
-  employeeId: number;
-  employeeName: string;
-  employeeCode: string | null;
-  fromDate: string; // ISO date string
-  toDate: string; // ISO date string
-  comments: string | null;
-  createdAt: string; // ISO date string
-}
-
-interface EditableCell {
-  rowIndex: number;
-  columnId: string;
-  initialValue: any;
-}
+import PageHeader from '@/components/layout/page-header';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { MaternityRecord, Employee } from '@shared/schema';
 
 export default function MaternityTracker() {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
-  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
-  const [toDate, setToDate] = useState<Date | undefined>(undefined);
-  const [comments, setComments] = useState("");
-  const [editableCell, setEditableCell] = useState<EditableCell | null>(null);
-  const [editValue, setEditValue] = useState<string>("");
-
+  const [editMode, setEditMode] = useState<boolean>(false);
+  const [editingRecord, setEditingRecord] = useState<Partial<MaternityRecord>>({});
+  const [popoverOpen, setPopoverOpen] = useState<{ [key: string]: boolean }>({});
+  
   // Fetch maternity records
-  const { data: maternityRecords = [], isLoading } = useQuery({
-    queryKey: ["/api/maternity-records"],
+  const { 
+    data: maternityRecords = [], 
+    isLoading: recordsLoading, 
+    error: recordsError 
+  } = useQuery({
+    queryKey: ['/api/maternity-records'],
   });
 
-  // Fetch employees for dropdown
-  const { data: employees = [] } = useQuery({
-    queryKey: ["/api/employees"],
+  // Fetch employees for the dropdown
+  const { 
+    data: employees = [], 
+    isLoading: employeesLoading, 
+    error: employeesError 
+  } = useQuery({
+    queryKey: ['/api/employees'],
   });
 
-  // Add maternity record mutation
-  const addMaternityMutation = useMutation({
-    mutationFn: async (newRecord: {
-      employeeId: number;
-      fromDate: string;
-      toDate: string;
-      comments?: string;
-    }) => {
-      return await apiRequest("/api/maternity-records", {
-        method: "POST",
-        body: JSON.stringify(newRecord),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/maternity-records"] });
-      setShowAddForm(false);
-      resetForm();
+  // Function to handle creation of a new maternity record
+  const handleCreateRecord = async () => {
+    if (!editingRecord.employeeId || !editingRecord.fromDate || !editingRecord.toDate) {
       toast({
-        title: "Maternity record added",
-        description: "The maternity record has been successfully added.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to add record",
-        description: error.message || "An error occurred while adding the maternity record.",
         variant: "destructive",
-      });
-    },
-  });
-
-  // Update maternity record mutation
-  const updateMaternityMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<MaternityRecord> }) => {
-      return await apiRequest(`/api/maternity-records/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/maternity-records"] });
-      toast({
-        title: "Record updated",
-        description: "The maternity record has been successfully updated.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Update failed",
-        description: error.message || "An error occurred while updating the record.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Reset form
-  const resetForm = () => {
-    setSelectedEmployee(null);
-    setFromDate(undefined);
-    setToDate(undefined);
-    setComments("");
-  };
-
-  // Handle adding new record
-  const handleAddRecord = () => {
-    if (!selectedEmployee || !fromDate || !toDate) {
-      toast({
-        title: "Missing required fields",
-        description: "Please fill in all the required fields.",
-        variant: "destructive",
+        title: "Missing fields",
+        description: "Please fill in all required fields."
       });
       return;
     }
 
-    addMaternityMutation.mutate({
-      employeeId: selectedEmployee,
-      fromDate: fromDate.toISOString(),
-      toDate: toDate.toISOString(),
-      comments: comments || null,
-    });
-  };
+    try {
+      const response = await fetch('/api/maternity-records', {
+        method: 'POST',
+        body: JSON.stringify(editingRecord),
+      });
 
-  // Handle cell click for inline editing
-  const handleCellClick = (rowIndex: number, columnId: string, value: any) => {
-    setEditableCell({ rowIndex, columnId, initialValue: value });
-    setEditValue(value ? String(value) : "");
-  };
+      if (!response.ok) {
+        throw new Error('Failed to create maternity record');
+      }
 
-  // Handle edit change
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditValue(e.target.value);
-  };
-
-  // Handle cell update
-  const handleCellUpdate = () => {
-    if (!editableCell) return;
-
-    const recordId = maternityRecords[editableCell.rowIndex].id;
-    const columnId = editableCell.columnId;
-    let newValue: any = editValue;
-
-    // Reset editable cell
-    setEditableCell(null);
-
-    // Skip update if value didn't change
-    if (newValue === editableCell.initialValue) return;
-
-    // Prepare data update based on column
-    const updateData: Partial<MaternityRecord> = {};
-    updateData[columnId] = newValue;
-
-    // Update the record
-    updateMaternityMutation.mutate({ id: recordId, data: updateData });
-  };
-
-  // Handle edit key down
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleCellUpdate();
-    } else if (e.key === "Escape") {
-      setEditableCell(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/maternity-records'] });
+      toast({
+        title: "Record created",
+        description: "The maternity record has been created successfully."
+      });
+      setEditingRecord({});
+      setEditMode(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create maternity record. Please try again."
+      });
     }
+  };
+
+  // Function to handle updating a maternity record
+  const handleUpdateRecord = async () => {
+    if (!editingRecord.id || !editingRecord.employeeId || !editingRecord.fromDate || !editingRecord.toDate) {
+      toast({
+        variant: "destructive",
+        title: "Missing fields",
+        description: "Please fill in all required fields."
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/maternity-records/${editingRecord.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editingRecord),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update maternity record');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/api/maternity-records'] });
+      toast({
+        title: "Record updated",
+        description: "The maternity record has been updated successfully."
+      });
+      setEditingRecord({});
+      setEditMode(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update maternity record. Please try again."
+      });
+    }
+  };
+
+  // Function to handle deletion of a maternity record
+  const handleDeleteRecord = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this record?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/maternity-records/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete maternity record');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/api/maternity-records'] });
+      toast({
+        title: "Record deleted",
+        description: "The maternity record has been deleted successfully."
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete maternity record. Please try again."
+      });
+    }
+  };
+
+  // Function to handle input changes for editing
+  const handleInputChange = (key: string, value: any) => {
+    setEditingRecord(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  // Edit an existing record
+  const startEditing = (record: MaternityRecord) => {
+    setEditingRecord({ ...record });
+    setEditMode(true);
+  };
+
+  // Toggle a date picker popover
+  const togglePopover = (key: string) => {
+    setPopoverOpen(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
 
   // Format date for display
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "dd MMM yyyy");
-    } catch (e) {
-      return dateString;
-    }
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return '';
+    return format(new Date(dateString), 'yyyy-MM-dd');
+  };
+
+  // If there's an error, display it
+  if (recordsError || employeesError) {
+    return (
+      <div className="p-6">
+        <PageHeader title="Maternity Tracker" />
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>Error loading data. Please try refreshing the page.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Find employee name by ID
+  const getEmployeeName = (employeeId: number) => {
+    const employee = employees.find((emp: any) => emp.id === employeeId);
+    return employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown';
+  };
+
+  // Find employee code by ID
+  const getEmployeeCode = (employeeId: number) => {
+    const employee = employees.find((emp: any) => emp.id === employeeId);
+    return employee ? employee.employeeCode : '';
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Maternity Tracker"
-        description="Track and manage employee maternity leave dates"
+    <div className="p-6">
+      <PageHeader 
+        title="Maternity Tracker" 
+        description="Track and manage maternity leave records"
+        queryKeys={['/api/maternity-records']} 
       >
-        <div className="flex gap-2">
-          <RefreshButton queryKeys={["/api/maternity-records"]} />
-          <Button onClick={() => setShowAddForm(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Record
+        {!editMode && (
+          <Button 
+            onClick={() => {
+              setEditingRecord({});
+              setEditMode(true);
+            }}
+          >
+            Add New Record
           </Button>
-        </div>
+        )}
       </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Maternity Records</CardTitle>
-          <CardDescription>Track maternity leave periods for employees</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-6">Loading records...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Emp. Code</TableHead>
-                    <TableHead>From Date</TableHead>
-                    <TableHead>To Date</TableHead>
-                    <TableHead>Comments</TableHead>
-                    <TableHead>Added On</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {maternityRecords.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
-                        No maternity records found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    maternityRecords.map((record, rowIndex) => (
-                      <TableRow key={record.id}>
-                        <TableCell>{record.employeeName}</TableCell>
-                        <TableCell>{record.employeeCode}</TableCell>
-                        
-                        {/* From Date Cell - Editable */}
-                        <TableCell 
-                          className="cursor-pointer hover:bg-muted"
-                          onClick={() => handleCellClick(rowIndex, 'fromDate', record.fromDate)}
-                        >
-                          {editableCell?.rowIndex === rowIndex && editableCell?.columnId === 'fromDate' ? (
-                            <Input
-                              type="date"
-                              value={editValue}
-                              onChange={handleEditChange}
-                              onKeyDown={handleEditKeyDown}
-                              onBlur={handleCellUpdate}
-                              autoFocus
-                              className="p-0 border-0 h-6"
-                            />
-                          ) : (
-                            formatDate(record.fromDate)
-                          )}
-                        </TableCell>
-                        
-                        {/* To Date Cell - Editable */}
-                        <TableCell 
-                          className="cursor-pointer hover:bg-muted"
-                          onClick={() => handleCellClick(rowIndex, 'toDate', record.toDate)}
-                        >
-                          {editableCell?.rowIndex === rowIndex && editableCell?.columnId === 'toDate' ? (
-                            <Input
-                              type="date"
-                              value={editValue}
-                              onChange={handleEditChange}
-                              onKeyDown={handleEditKeyDown}
-                              onBlur={handleCellUpdate}
-                              autoFocus
-                              className="p-0 border-0 h-6"
-                            />
-                          ) : (
-                            formatDate(record.toDate)
-                          )}
-                        </TableCell>
-                        
-                        {/* Comments Cell - Editable */}
-                        <TableCell 
-                          className="cursor-pointer hover:bg-muted"
-                          onClick={() => handleCellClick(rowIndex, 'comments', record.comments)}
-                        >
-                          {editableCell?.rowIndex === rowIndex && editableCell?.columnId === 'comments' ? (
-                            <Input
-                              value={editValue}
-                              onChange={handleEditChange}
-                              onKeyDown={handleEditKeyDown}
-                              onBlur={handleCellUpdate}
-                              autoFocus
-                              className="p-0 border-0 h-6"
-                            />
-                          ) : (
-                            record.comments || ""
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>{formatDate(record.createdAt)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+      {editMode && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Employee</label>
+                <Select
+                  value={editingRecord.employeeId?.toString()}
+                  onValueChange={(value) => handleInputChange('employeeId', parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee: any) => (
+                      <SelectItem key={employee.id} value={employee.id.toString()}>
+                        {employee.employeeCode ? `[${employee.employeeCode}] ` : ''}{employee.firstName} {employee.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">From Date</label>
+                <Popover
+                  open={popoverOpen['fromDate']}
+                  onOpenChange={() => togglePopover('fromDate')}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editingRecord.fromDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {editingRecord.fromDate ? formatDate(editingRecord.fromDate) : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editingRecord.fromDate ? new Date(editingRecord.fromDate) : undefined}
+                      onSelect={(date) => {
+                        handleInputChange('fromDate', date ? format(date, 'yyyy-MM-dd') : undefined);
+                        togglePopover('fromDate');
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">To Date</label>
+                <Popover
+                  open={popoverOpen['toDate']}
+                  onOpenChange={() => togglePopover('toDate')}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editingRecord.toDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {editingRecord.toDate ? formatDate(editingRecord.toDate) : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editingRecord.toDate ? new Date(editingRecord.toDate) : undefined}
+                      onSelect={(date) => {
+                        handleInputChange('toDate', date ? format(date, 'yyyy-MM-dd') : undefined);
+                        togglePopover('toDate');
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium mb-1">Comments</label>
+                <Input
+                  value={editingRecord.comments || ''}
+                  onChange={(e) => handleInputChange('comments', e.target.value)}
+                  placeholder="Additional comments (optional)"
+                />
+              </div>
             </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditMode(false);
+                  setEditingRecord({});
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={editingRecord.id ? handleUpdateRecord : handleCreateRecord}
+              >
+                {editingRecord.id ? 'Update' : 'Create'} Record
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
+          {recordsLoading || employeesLoading ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : maternityRecords.length === 0 ? (
+            <div className="text-center py-4 text-neutral-500">
+              No maternity records found. Click "Add New Record" to create one.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Emp. Code</TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>From Date</TableHead>
+                  <TableHead>To Date</TableHead>
+                  <TableHead>Comments</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {maternityRecords.map((record: any, rowIndex: number) => (
+                  <TableRow key={record.id} className={rowIndex % 2 === 0 ? 'bg-neutral-50' : ''}>
+                    <TableCell className="font-medium">{record.employeeCode || '-'}</TableCell>
+                    <TableCell>{record.employeeName}</TableCell>
+                    <TableCell>{formatDate(record.fromDate)}</TableCell>
+                    <TableCell>{formatDate(record.toDate)}</TableCell>
+                    <TableCell>{record.comments || '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditing(record)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleDeleteRecord(record.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
-
-      {/* Add Record Dialog */}
-      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Maternity Record</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="employee">Employee</Label>
-              <select
-                id="employee"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={selectedEmployee || ""}
-                onChange={(e) => setSelectedEmployee(Number(e.target.value))}
-              >
-                <option value="">Select Employee</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.firstName} {employee.lastName} {employee.employeeCode ? `(${employee.employeeCode})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>From Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {fromDate ? format(fromDate, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={fromDate}
-                      onSelect={setFromDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label>To Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {toDate ? format(toDate, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={toDate}
-                      onSelect={setToDate}
-                      initialFocus
-                      disabled={(date) => 
-                        fromDate ? date < fromDate : false
-                      }
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="comments">Comments</Label>
-              <Input
-                id="comments"
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="Additional notes or comments"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddForm(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddRecord} disabled={!selectedEmployee || !fromDate || !toDate}>
-              Add Record
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

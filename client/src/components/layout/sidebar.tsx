@@ -163,6 +163,11 @@ export default function Sidebar() {
           label="Records Editor" 
         />
         <NavItem 
+          icon={Calendar} 
+          path="/maternity-tracker" 
+          label="Maternity Tracker" 
+        />
+        <NavItem 
           icon={Activity} 
           path="/activity" 
           label="Activity Logs" 
