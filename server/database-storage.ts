@@ -456,14 +456,14 @@ export class DatabaseStorage implements IStorage {
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     
     // Get sum of all earnings for the current month
-    const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance', 'Standby Shift'];
+    const earningTypes = ['Overtime', 'Special Shift', 'Escort Allowance', 'Standby Shift', 'Cash in Transit', 'Camera Allowance'];
     const [earningsResult] = await db.select({
       total: sql<number>`sum(${payrollRecords.amount})`
     })
     .from(payrollRecords)
     .where(
       and(
-        inArray(payrollRecords.recordType, earningTypes),
+        inArray(payrollRecords.recordType, earningTypes as any[]),
         gte(payrollRecords.date, startOfMonth),
         lte(payrollRecords.date, endOfMonth)
       )

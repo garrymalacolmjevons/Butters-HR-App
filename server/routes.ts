@@ -1310,7 +1310,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await storage.getDashboardData();
       res.json(data);
     } catch (error) {
-      next(error);
+      console.error("Dashboard error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  // Garnishee Dashboard data route
+  app.get("/api/garnishee-dashboard", isAuthenticated, async (req, res, next) => {
+    try {
+      const data = await storage.getGarnisheeDashboardData();
+      res.json(data);
+    } catch (error) {
+      console.error("Garnishee dashboard error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  // Staff Garnishee routes
+  app.get("/api/staff-garnishees", isAuthenticated, async (req, res, next) => {
+    try {
+      const garnishees = await storage.getStaffGarnishees();
+      res.json(garnishees);
+    } catch (error) {
+      console.error("Staff garnishees error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.get("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const garnishee = await storage.getStaffGarnishee(id);
+      
+      if (!garnishee) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      res.json(garnishee);
+    } catch (error) {
+      console.error("Get staff garnishee error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.post("/api/staff-garnishees", isAuthenticated, async (req, res, next) => {
+    try {
+      const garnishee = await storage.createStaffGarnishee(req.body);
+      res.status(201).json(garnishee);
+    } catch (error) {
+      console.error("Create staff garnishee error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.patch("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const garnishee = await storage.updateStaffGarnishee(id, req.body);
+      
+      if (!garnishee) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      res.json(garnishee);
+    } catch (error) {
+      console.error("Update staff garnishee error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.delete("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteStaffGarnishee(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Delete staff garnishee error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  // Garnishee Payment routes
+  app.get("/api/garnishee-payments/:garnisheeId", isAuthenticated, async (req, res, next) => {
+    try {
+      const garnisheeId = parseInt(req.params.garnisheeId);
+      const payments = await storage.getGarnisheePayments(garnisheeId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Garnishee payments error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.post("/api/garnishee-payments", isAuthenticated, async (req, res, next) => {
+    try {
+      const payment = await storage.createGarnisheePayment(req.body);
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Create garnishee payment error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.patch("/api/garnishee-payments/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const payment = await storage.updateGarnisheePayment(id, req.body);
+      
+      if (!payment) {
+        return res.status(404).json({ message: "Garnishee payment not found" });
+      }
+      
+      res.json(payment);
+    } catch (error) {
+      console.error("Update garnishee payment error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.delete("/api/garnishee-payments/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteGarnisheePayment(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Garnishee payment not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Delete garnishee payment error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
     }
   });
   

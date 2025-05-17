@@ -8,434 +8,465 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { toast } from '@/hooks/use-toast';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { format } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, PlusCircleIcon, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { StaffGarnishee, Employee } from '@shared/schema';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { apiRequest } from '@/lib/queryClient';
 
-export default function GarnisheeOrders() {
-  const { toast } = useToast();
+type Employee = {
+  id: number;
+  employeeCode: string | null;
+  firstName: string;
+  lastName: string;
+  fullName?: string;
+};
+
+type StaffGarnishee = {
+  id: number;
+  employeeId: number;
+  creditor: string;
+  reason: string;
+  totalAmount: number;
+  startDate: string;
+  endDate: string | null;
+  installmentAmount: number;
+  status: 'Active' | 'Completed' | 'Cancelled' | 'Suspended';
+  createdAt: string;
+  updatedAt: string;
+  employeeName?: string;
+  employeeCode?: string | null;
+  remainingAmount?: number;
+};
+
+type GarnisheePayment = {
+  id: number;
+  garnisheeId: number;
+  paymentDate: string;
+  amount: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DashboardData = {
+  activeGarnishees: number;
+  totalOutstanding: number;
+  monthlyPayments: number;
+};
+
+const GarnisheeOrders: React.FC = () => {
   const queryClient = useQueryClient();
-  const [editMode, setEditMode] = useState<boolean>(false);
-  const [editingGarnishee, setEditingGarnishee] = useState<Partial<StaffGarnishee>>({});
-  const [popoverOpen, setPopoverOpen] = useState<{ [key: string]: boolean }>({});
-  
-  // Fetch garnishee orders
+  const [selectedGarnishee, setSelectedGarnishee] = useState<StaffGarnishee | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
+  const [newGarnishee, setNewGarnishee] = useState({
+    employeeId: '',
+    creditor: '',
+    reason: '',
+    totalAmount: '',
+    installmentAmount: '',
+    startDate: '',
+    status: 'Active'
+  });
+  const [newPayment, setNewPayment] = useState({
+    amount: '',
+    paymentDate: '',
+    notes: ''
+  });
+  const [editMode, setEditMode] = useState(false);
+  const [currentGarnisheePayments, setCurrentGarnisheePayments] = useState<GarnisheePayment[]>([]);
+
+  // Fetch garnishee data
   const { 
-    data: garnisheeOrders = [], 
-    isLoading: ordersLoading, 
-    error: ordersError 
+    data: garnishees = [], 
+    isLoading: isLoadingGarnishees,
+    refetch: refetchGarnishees 
   } = useQuery({
     queryKey: ['/api/staff-garnishees'],
-  });
-
-  // Fetch employees for the dropdown
-  const { 
-    data: employees = [], 
-    isLoading: employeesLoading, 
-    error: employeesError 
-  } = useQuery({
-    queryKey: ['/api/employees'],
+    retry: false
   });
 
   // Fetch dashboard data
-  const {
-    data: dashboardData = { activeOrders: 0, totalOutstanding: 0, monthlyPayments: 0 },
-    isLoading: dashboardLoading,
-    error: dashboardError
+  const { 
+    data: dashboardData = { activeGarnishees: 0, totalOutstanding: 0, monthlyPayments: 0 }, 
+    isLoading: isLoadingDashboard,
+    refetch: refetchDashboard 
   } = useQuery({
     queryKey: ['/api/garnishee-dashboard'],
+    retry: false
   });
 
-  // Function to handle creation of a new garnishee order
-  const handleCreateGarnishee = async () => {
-    if (!editingGarnishee.employeeId || !editingGarnishee.creditor || 
-        !editingGarnishee.monthlyAmount || !editingGarnishee.totalAmount || 
-        !editingGarnishee.balance || !editingGarnishee.startDate) {
-      toast({
-        variant: "destructive",
-        title: "Missing fields",
-        description: "Please fill in all required fields."
-      });
-      return;
-    }
+  // Fetch employees
+  const { 
+    data: employees = [], 
+    isLoading: isLoadingEmployees 
+  } = useQuery({
+    queryKey: ['/api/employees'],
+    retry: false
+  });
 
-    // Prepare data with proper types for submission
-    const garnisheeData = {
-      ...editingGarnishee,
-      employeeId: Number(editingGarnishee.employeeId),
-      monthlyAmount: Number(editingGarnishee.monthlyAmount),
-      totalAmount: Number(editingGarnishee.totalAmount),
-      balance: Number(editingGarnishee.balance),
-      startDate: editingGarnishee.startDate,
-      endDate: editingGarnishee.endDate
-    };
+  const handleRefresh = () => {
+    refetchGarnishees();
+    refetchDashboard();
+  };
+
+  const openGarnisheeForm = (garnishee?: StaffGarnishee) => {
+    if (garnishee) {
+      setNewGarnishee({
+        employeeId: garnishee.employeeId.toString(),
+        creditor: garnishee.creditor,
+        reason: garnishee.reason,
+        totalAmount: garnishee.totalAmount.toString(),
+        installmentAmount: garnishee.installmentAmount.toString(),
+        startDate: garnishee.startDate,
+        status: garnishee.status
+      });
+      setEditMode(true);
+      setSelectedGarnishee(garnishee);
+    } else {
+      setNewGarnishee({
+        employeeId: '',
+        creditor: '',
+        reason: '',
+        totalAmount: '',
+        installmentAmount: '',
+        startDate: format(new Date(), 'yyyy-MM-dd'),
+        status: 'Active'
+      });
+      setEditMode(false);
+      setSelectedGarnishee(null);
+    }
+    setIsFormOpen(true);
+  };
+
+  const openPaymentForm = async (garnishee: StaffGarnishee) => {
+    setSelectedGarnishee(garnishee);
+    setNewPayment({
+      amount: garnishee.installmentAmount.toString(),
+      paymentDate: format(new Date(), 'yyyy-MM-dd'),
+      notes: ''
+    });
 
     try {
-      const response = await fetch('/api/staff-garnishees', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(garnisheeData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create garnishee order');
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['/api/staff-garnishees'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/garnishee-dashboard'] });
-      
-      toast({
-        title: "Order created",
-        description: "The garnishee order has been created successfully."
-      });
-      setEditingGarnishee({});
-      setEditMode(false);
+      const payments = await apiRequest<GarnisheePayment[]>(`/api/garnishee-payments/${garnishee.id}`);
+      setCurrentGarnisheePayments(payments);
+      setIsPaymentFormOpen(true);
     } catch (error) {
+      console.error("Error fetching garnishee payments:", error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: "Failed to create garnishee order. Please try again."
+        description: "Failed to load garnishee payment history",
+        variant: "destructive"
       });
     }
   };
 
-  // Function to handle updating a garnishee order
-  const handleUpdateGarnishee = async () => {
-    if (!editingGarnishee.id || !editingGarnishee.employeeId || !editingGarnishee.creditor || 
-        !editingGarnishee.monthlyAmount || !editingGarnishee.totalAmount || 
-        !editingGarnishee.balance || !editingGarnishee.startDate) {
-      toast({
-        variant: "destructive",
-        title: "Missing fields",
-        description: "Please fill in all required fields."
-      });
-      return;
-    }
-
-    // Prepare data with proper types for submission
-    const garnisheeData = {
-      ...editingGarnishee,
-      employeeId: Number(editingGarnishee.employeeId),
-      monthlyAmount: Number(editingGarnishee.monthlyAmount),
-      totalAmount: Number(editingGarnishee.totalAmount),
-      balance: Number(editingGarnishee.balance),
-      startDate: editingGarnishee.startDate,
-      endDate: editingGarnishee.endDate
-    };
-
+  const handleGarnisheeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      const response = await fetch(`/api/staff-garnishees/${editingGarnishee.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(garnisheeData),
-      });
+      const garnisheeData = {
+        employeeId: parseInt(newGarnishee.employeeId),
+        creditor: newGarnishee.creditor,
+        reason: newGarnishee.reason,
+        totalAmount: parseFloat(newGarnishee.totalAmount),
+        installmentAmount: parseFloat(newGarnishee.installmentAmount),
+        startDate: newGarnishee.startDate,
+        status: newGarnishee.status
+      };
 
-      if (!response.ok) {
-        throw new Error('Failed to update garnishee order');
+      if (editMode && selectedGarnishee) {
+        await apiRequest(`/api/staff-garnishees/${selectedGarnishee.id}`, 'PATCH', garnisheeData);
+        toast({
+          title: "Success",
+          description: "Garnishee order updated successfully"
+        });
+      } else {
+        await apiRequest('/api/staff-garnishees', 'POST', garnisheeData);
+        toast({
+          title: "Success",
+          description: "Garnishee order added successfully"
+        });
       }
 
       queryClient.invalidateQueries({ queryKey: ['/api/staff-garnishees'] });
       queryClient.invalidateQueries({ queryKey: ['/api/garnishee-dashboard'] });
-      
-      toast({
-        title: "Order updated",
-        description: "The garnishee order has been updated successfully."
-      });
-      setEditingGarnishee({});
-      setEditMode(false);
+      setIsFormOpen(false);
     } catch (error) {
+      console.error("Error submitting garnishee:", error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: "Failed to update garnishee order. Please try again."
+        description: "Failed to save garnishee order",
+        variant: "destructive"
       });
     }
   };
 
-  // Function to handle deleting a garnishee order
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedGarnishee) return;
+    
+    try {
+      const paymentData = {
+        garnisheeId: selectedGarnishee.id,
+        amount: parseFloat(newPayment.amount),
+        paymentDate: newPayment.paymentDate,
+        notes: newPayment.notes || null
+      };
+
+      await apiRequest('/api/garnishee-payments', 'POST', paymentData);
+      toast({
+        title: "Success",
+        description: "Payment recorded successfully"
+      });
+
+      // Refresh data
+      const payments = await apiRequest<GarnisheePayment[]>(`/api/garnishee-payments/${selectedGarnishee.id}`);
+      setCurrentGarnisheePayments(payments);
+      queryClient.invalidateQueries({ queryKey: ['/api/staff-garnishees'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/garnishee-dashboard'] });
+      
+      // Clear form
+      setNewPayment({
+        amount: selectedGarnishee.installmentAmount.toString(),
+        paymentDate: format(new Date(), 'yyyy-MM-dd'),
+        notes: ''
+      });
+    } catch (error) {
+      console.error("Error submitting payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDeleteGarnishee = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this garnishee order?')) {
-      return;
-    }
-
+    if (!confirm("Are you sure you want to delete this garnishee order? This action cannot be undone.")) return;
+    
     try {
-      const response = await fetch(`/api/staff-garnishees/${id}`, {
-        method: 'DELETE',
+      await apiRequest(`/api/staff-garnishees/${id}`, 'DELETE');
+      toast({
+        title: "Success",
+        description: "Garnishee order deleted successfully"
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete garnishee order');
-      }
-
       queryClient.invalidateQueries({ queryKey: ['/api/staff-garnishees'] });
       queryClient.invalidateQueries({ queryKey: ['/api/garnishee-dashboard'] });
-      
-      toast({
-        title: "Order deleted",
-        description: "The garnishee order has been deleted successfully."
-      });
     } catch (error) {
+      console.error("Error deleting garnishee:", error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: "Failed to delete garnishee order. Please try again."
+        description: "Failed to delete garnishee order",
+        variant: "destructive"
       });
     }
   };
 
-  // Handle form input changes
-  const handleInputChange = (field: string, value: any) => {
-    setEditingGarnishee(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(amount);
   };
 
-  // Edit an existing garnishee
-  const startEditing = (garnishee: StaffGarnishee) => {
-    setEditingGarnishee({ ...garnishee });
-    setEditMode(true);
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return format(date, 'dd MMM yyyy');
   };
 
-  // Toggle a date picker popover
-  const togglePopover = (key: string) => {
-    setPopoverOpen(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'Active': return 'default';
+      case 'Completed': return 'success';
+      case 'Cancelled': return 'destructive';
+      case 'Suspended': return 'outline';
+      default: return 'secondary';
+    }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return '-';
-    return format(new Date(dateString), 'yyyy-MM-dd');
+  const getEmployeeNameById = (id: number) => {
+    const employee = (employees as Employee[]).find(emp => emp.id === id);
+    return employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown Employee';
   };
-
-  // Format currency
-  const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined) return '-';
-    return `R ${amount.toFixed(2)}`;
-  };
-
-  // Format status with badge
-  const formatStatus = (status: string | undefined) => {
-    if (!status) return '-';
-    
-    const variant = 
-      status === 'Active' ? 'default' :
-      status === 'Completed' ? 'success' :
-      status === 'Suspended' ? 'warning' : 'secondary';
-    
-    return (
-      <Badge variant={variant as any}>{status}</Badge>
-    );
-  };
-
-  // If there's an error, display it
-  if (ordersError || employeesError || dashboardError) {
-    return (
-      <div className="p-6">
-        <PageHeader title="Staff Garnishee Orders" />
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <p>Error loading data. Please try refreshing the page.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="p-6">
-      <PageHeader 
-        title="Staff Garnishee Orders" 
-        description="Manage and track garnishee orders for employees"
-        queryKeys={['/api/staff-garnishees', '/api/garnishee-dashboard']} 
-      >
-        {!editMode && (
-          <Button 
-            onClick={() => {
-              setEditingGarnishee({});
-              setEditMode(true);
-            }}
-          >
-            Add Garnishee Order
-          </Button>
-        )}
-      </PageHeader>
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <PageHeader title="Staff Garnishee Orders" />
+        <RefreshButton onClick={handleRefresh} />
+      </div>
 
       {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-xl font-semibold mb-2">Active Orders</div>
-            <div className="text-3xl font-bold">{dashboardData.activeOrders}</div>
-            <div className="text-sm text-neutral-500">Total active garnishee orders being processed</div>
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-2">Active Orders</h3>
+            <p className="text-2xl font-bold">{dashboardData.activeGarnishees}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-xl font-semibold mb-2">Total Outstanding</div>
-            <div className="text-3xl font-bold">R {dashboardData.totalOutstanding.toFixed(2)}</div>
-            <div className="text-sm text-neutral-500">Combined total outstanding balance</div>
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-2">Total Outstanding</h3>
+            <p className="text-2xl font-bold">{formatCurrency(dashboardData.totalOutstanding)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-xl font-semibold mb-2">Monthly Payments</div>
-            <div className="text-3xl font-bold">R {dashboardData.monthlyPayments.toFixed(2)}</div>
-            <div className="text-sm text-neutral-500">Combined monthly payment amount</div>
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-2">Monthly Payments</h3>
+            <p className="text-2xl font-bold">{formatCurrency(dashboardData.monthlyPayments)}</p>
           </CardContent>
         </Card>
       </div>
 
-      {editMode && (
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="text-xl font-semibold mb-4">
-              {editingGarnishee.id ? "Edit Garnishee Order" : "Add New Garnishee Order"}
+      <div className="flex justify-end mb-4">
+        <Button onClick={() => openGarnisheeForm()}>Add New Garnishee Order</Button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        {isLoadingGarnishees ? (
+          <div className="p-4 text-center">Loading garnishee orders...</div>
+        ) : garnishees.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No garnishee orders found. Click 'Add New Garnishee Order' to create one.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Emp. Code</TableHead>
+                  <TableHead>Creditor</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Total Amount</TableHead>
+                  <TableHead>Monthly Amount</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Remaining</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {garnishees.map((garnishee: StaffGarnishee) => (
+                  <TableRow key={garnishee.id}>
+                    <TableCell>{garnishee.employeeName}</TableCell>
+                    <TableCell>{garnishee.employeeCode || 'N/A'}</TableCell>
+                    <TableCell>{garnishee.creditor}</TableCell>
+                    <TableCell>{garnishee.reason}</TableCell>
+                    <TableCell>{formatCurrency(garnishee.totalAmount)}</TableCell>
+                    <TableCell>{formatCurrency(garnishee.installmentAmount)}</TableCell>
+                    <TableCell>{formatDate(garnishee.startDate)}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(garnishee.status)}>
+                        {garnishee.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatCurrency(garnishee.remainingAmount || 0)}</TableCell>
+                    <TableCell className="space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => openGarnisheeForm(garnishee)}>Edit</Button>
+                      <Button variant="outline" size="sm" onClick={() => openPaymentForm(garnishee)}>Payments</Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDeleteGarnishee(garnishee.id)}>Delete</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Garnishee Form */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{editMode ? "Edit Garnishee Order" : "Add New Garnishee Order"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleGarnisheeSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Employee</label>
+              <Select 
+                value={newGarnishee.employeeId} 
+                onValueChange={(value) => setNewGarnishee({...newGarnishee, employeeId: value})}
+                required
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select an employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(employees as Employee[]).map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id.toString()}>
+                      {employee.firstName} {employee.lastName} {employee.employeeCode ? `(${employee.employeeCode})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Employee*</label>
-                <Select
-                  value={editingGarnishee.employeeId?.toString()}
-                  onValueChange={(value) => handleInputChange('employeeId', parseInt(value))}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Creditor</label>
+                <Input 
+                  value={newGarnishee.creditor} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, creditor: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Reason</label>
+                <Input 
+                  value={newGarnishee.reason} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, reason: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Total Amount (R)</label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  value={newGarnishee.totalAmount} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, totalAmount: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Monthly Installment (R)</label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  value={newGarnishee.installmentAmount} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, installmentAmount: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Start Date</label>
+                <Input 
+                  type="date" 
+                  value={newGarnishee.startDate} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, startDate: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Status</label>
+                <Select 
+                  value={newGarnishee.status} 
+                  onValueChange={(value: any) => setNewGarnishee({...newGarnishee, status: value})}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((employee: any) => (
-                      <SelectItem key={employee.id} value={employee.id.toString()}>
-                        {employee.employeeCode ? `[${employee.employeeCode}] ` : ''}{employee.firstName} {employee.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Case Number</label>
-                <Input
-                  value={editingGarnishee.caseNumber || ''}
-                  onChange={(e) => handleInputChange('caseNumber', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Creditor*</label>
-                <Input
-                  value={editingGarnishee.creditor || ''}
-                  onChange={(e) => handleInputChange('creditor', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Monthly Amount*</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editingGarnishee.monthlyAmount || ''}
-                  onChange={(e) => handleInputChange('monthlyAmount', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Total Amount*</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editingGarnishee.totalAmount || ''}
-                  onChange={(e) => handleInputChange('totalAmount', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Balance*</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editingGarnishee.balance || ''}
-                  onChange={(e) => handleInputChange('balance', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Start Date*</label>
-                <Popover open={popoverOpen['startDate']} onOpenChange={() => togglePopover('startDate')}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !editingGarnishee.startDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editingGarnishee.startDate ? formatDate(editingGarnishee.startDate as unknown as string) : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={editingGarnishee.startDate as unknown as Date}
-                      onSelect={(date) => {
-                        handleInputChange('startDate', date);
-                        togglePopover('startDate');
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">End Date</label>
-                <Popover open={popoverOpen['endDate']} onOpenChange={() => togglePopover('endDate')}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !editingGarnishee.endDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editingGarnishee.endDate ? formatDate(editingGarnishee.endDate as unknown as string) : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={editingGarnishee.endDate as unknown as Date}
-                      onSelect={(date) => {
-                        handleInputChange('endDate', date);
-                        togglePopover('endDate');
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <Select
-                  value={editingGarnishee.status || 'Active'}
-                  onValueChange={(value) => handleInputChange('status', value)}
-                >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -446,91 +477,119 @@ export default function GarnisheeOrders() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Comments</label>
-                <Input
-                  value={editingGarnishee.comments || ''}
-                  onChange={(e) => handleInputChange('comments', e.target.value)}
-                />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" type="button" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+              <Button type="submit">{editMode ? "Update" : "Save"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Management Dialog */}
+      <Dialog open={isPaymentFormOpen} onOpenChange={setIsPaymentFormOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Manage Payments</DialogTitle>
+          </DialogHeader>
+          
+          {selectedGarnishee && (
+            <div className="mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-sm font-medium">Employee</p>
+                  <p>{selectedGarnishee.employeeName}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Creditor</p>
+                  <p>{selectedGarnishee.creditor}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Total Amount</p>
+                  <p>{formatCurrency(selectedGarnishee.totalAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Remaining</p>
+                  <p>{formatCurrency(selectedGarnishee.remainingAmount || 0)}</p>
+                </div>
               </div>
             </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => {
-                setEditMode(false);
-                setEditingGarnishee({});
-              }}>
-                Cancel
-              </Button>
-              <Button onClick={editingGarnishee.id ? handleUpdateGarnishee : handleCreateGarnishee}>
-                {editingGarnishee.id ? "Update" : "Create"} Garnishee Order
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-xl font-semibold mb-4">Garnishee Records</div>
-          {ordersLoading || employeesLoading ? (
-            <div className="text-center py-4">Loading...</div>
-          ) : garnisheeOrders.length === 0 ? (
-            <div className="text-center py-4 text-neutral-500">
-              No garnishee orders found. Click "Add Garnishee Order" to create one.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Emp. Code</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Case Number</TableHead>
-                  <TableHead>Creditor</TableHead>
-                  <TableHead>Monthly Amount</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {garnisheeOrders.map((order: any, rowIndex: number) => (
-                  <TableRow key={order.id} className={rowIndex % 2 === 0 ? 'bg-neutral-50' : ''}>
-                    <TableCell className="font-medium">{order.employeeCode || '-'}</TableCell>
-                    <TableCell>{order.employeeName}</TableCell>
-                    <TableCell>{order.caseNumber || '-'}</TableCell>
-                    <TableCell>{order.creditor}</TableCell>
-                    <TableCell>{formatCurrency(order.monthlyAmount)}</TableCell>
-                    <TableCell>{formatCurrency(order.balance)}</TableCell>
-                    <TableCell>{formatStatus(order.status)}</TableCell>
-                    <TableCell>{formatDate(order.startDate)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => startEditing(order)}
-                        >
-                          Edit
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDeleteGarnishee(order.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           )}
-        </CardContent>
-      </Card>
+
+          <Tabs defaultValue="history" className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="history">Payment History</TabsTrigger>
+              <TabsTrigger value="add">Add Payment</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="history" className="mt-4">
+              {currentGarnisheePayments.length === 0 ? (
+                <div className="text-center p-4 text-gray-500">No payment records found</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentGarnisheePayments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                        <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                        <TableCell>{payment.notes || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="add" className="mt-4">
+              <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">Payment Amount (R)</label>
+                    <Input 
+                      type="number" 
+                      step="0.01"
+                      value={newPayment.amount} 
+                      onChange={(e) => setNewPayment({...newPayment, amount: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">Payment Date</label>
+                    <Input 
+                      type="date" 
+                      value={newPayment.paymentDate} 
+                      onChange={(e) => setNewPayment({...newPayment, paymentDate: e.target.value})}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">Notes (Optional)</label>
+                  <Input 
+                    value={newPayment.notes} 
+                    onChange={(e) => setNewPayment({...newPayment, notes: e.target.value})}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="submit">Record Payment</Button>
+                </div>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
+
+export default GarnisheeOrders;
