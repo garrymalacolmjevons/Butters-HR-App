@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarIcon, Download, Loader2 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -570,11 +571,18 @@ export default function ReportsPage() {
         </Card>
         
         <Card className="border-2 border-amber-400/20 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white">
-            <CardTitle>Recent Exports</CardTitle>
-            <CardDescription className="text-gray-300">
-              Download previously generated reports
-            </CardDescription>
+          <CardHeader className="bg-gradient-to-r from-gray-900 to-gray-800 text-white flex flex-row justify-between items-start">
+            <div>
+              <CardTitle>Recent Exports</CardTitle>
+              <CardDescription className="text-gray-300">
+                Download previously generated reports
+              </CardDescription>
+            </div>
+            <RefreshButton
+              queryKeys={["/api/reports/exports"]}
+              label="Refresh"
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            />
           </CardHeader>
           <CardContent>
             {isLoadingHistory ? (
