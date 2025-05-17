@@ -2537,5 +2537,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Maternity Tracker routes
+  app.get("/api/maternity-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const records = await storage.getMaternityRecords();
+      return res.json(records);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.get("/api/maternity-records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const record = await storage.getMaternityRecord(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Maternity record not found" });
+      }
+      
+      return res.json(record);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.post("/api/maternity-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const recordData = req.body;
+      const userId = (req.user as any).id;
+      
+      // Convert string dates to Date objects
+      if (recordData.fromDate) {
+        recordData.fromDate = new Date(recordData.fromDate);
+      }
+      if (recordData.toDate) {
+        recordData.toDate = new Date(recordData.toDate);
+      }
+      
+      const record = await storage.createMaternityRecord(recordData);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "CREATE_MATERNITY_RECORD",
+        details: `Created maternity record for employee ID: ${record.employeeId}`
+      });
+      
+      return res.status(201).json(record);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.put("/api/maternity-records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const recordData = req.body;
+      const userId = (req.user as any).id;
+      
+      // Convert string dates to Date objects
+      if (recordData.fromDate) {
+        recordData.fromDate = new Date(recordData.fromDate);
+      }
+      if (recordData.toDate) {
+        recordData.toDate = new Date(recordData.toDate);
+      }
+      
+      const record = await storage.updateMaternityRecord(id, recordData);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Maternity record not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "UPDATE_MATERNITY_RECORD",
+        details: `Updated maternity record ID: ${id}`
+      });
+      
+      return res.json(record);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.delete("/api/maternity-records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = (req.user as any).id;
+      
+      const success = await storage.deleteMaternityRecord(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Maternity record not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "DELETE_MATERNITY_RECORD",
+        details: `Deleted maternity record ID: ${id}`
+      });
+      
+      return res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return server;
 }

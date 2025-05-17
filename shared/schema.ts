@@ -16,7 +16,8 @@ export const recordTypeEnum = pgEnum('record_type', [
   'Special Shift', 
   'Escort Allowance', 
   'Commission', 
-  'Cash in Transit'
+  'Cash in Transit',
+  'Camera Allowance'
 ]);
 export const leaveTypeEnum = pgEnum('leave_type', ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Compassionate Leave', 'Study Leave']);
 export const leaveStatusEnum = pgEnum('leave_status', ['Pending', 'Approved', 'Rejected']);
