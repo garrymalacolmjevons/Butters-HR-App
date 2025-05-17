@@ -874,6 +874,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             action: "Generated Report",
             details: `Generated CSV report for ${recordType} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
           });
+
+          // Record the exported record IDs for tracking
+          await storage.createExportRecord({
+            userId,
+            startDate,
+            endDate,
+            exportType: recordType,
+            fileUrl: `${filename}.csv`,
+            fileFormat: 'csv',
+            includeUnapproved: includeUnapproved,
+            recordCount: records.length,
+            exportedRecordIds: records.map(record => record.id) // Track which records were exported
+          });
         } catch (error) {
           console.error('Error logging activity:', error);
         }

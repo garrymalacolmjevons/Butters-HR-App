@@ -400,8 +400,15 @@ const RecordsEditor = () => {
               <tbody>
                 {filteredRecords.length > 0 ? (
                   filteredRecords.map((record, rowIndex) => (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="p-2 border">{record.id}</td>
+                    <tr key={record.id} className={`hover:bg-gray-50 ${record.hasBeenExported ? "bg-amber-100" : ""}`}>
+                      <td className="p-2 border">
+                        <div className="flex items-center gap-1">
+                          <span>{record.id}</span>
+                          {record.hasBeenExported && (
+                            <span className="text-xs text-amber-800 font-medium">Exported</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-2 border">
                         {editableCell?.rowIndex === rowIndex && editableCell?.columnId === 'date' ? (
                           <Input

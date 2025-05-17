@@ -400,7 +400,12 @@ export type InsertPayrollRecord = z.infer<typeof insertPayrollRecordSchema>;
 export type RecurringDeduction = typeof recurringDeductions.$inferSelect;
 export type InsertRecurringDeduction = z.infer<typeof insertRecurringDeductionSchema>;
 export type ExportRecord = typeof exportRecords.$inferSelect;
-export type InsertExportRecord = z.infer<typeof insertExportRecordSchema>;
+// Extended schema for export records that includes tracking
+export const extendedExportRecordSchema = insertExportRecordSchema.extend({
+  exportedRecordIds: z.array(z.number()).optional(),
+});
+
+export type InsertExportRecord = z.infer<typeof extendedExportRecordSchema>;
 export type EmailSettings = typeof emailSettings.$inferSelect;
 export type InsertEmailSettings = z.infer<typeof insertEmailSettingsSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
