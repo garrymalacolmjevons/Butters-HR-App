@@ -73,6 +73,7 @@ const GarnisheeOrders: React.FC = () => {
     totalAmount: '',
     monthlyAmount: '',
     startDate: '',
+    endDate: '',
     comments: '',
     status: 'Active'
   });
@@ -183,6 +184,7 @@ const GarnisheeOrders: React.FC = () => {
         monthlyAmount: parseFloat(newGarnishee.monthlyAmount),
         balance: parseFloat(newGarnishee.totalAmount), // Initialize balance with total amount
         startDate: newGarnishee.startDate,
+        endDate: newGarnishee.endDate || null,
         comments: newGarnishee.comments || null,
         status: newGarnishee.status
       };
@@ -465,6 +467,17 @@ const GarnisheeOrders: React.FC = () => {
                   required
                 />
               </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">End Date</label>
+                <Input 
+                  type="date" 
+                  value={newGarnishee.endDate} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, endDate: e.target.value})}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium">Status</label>
                 <Select 
