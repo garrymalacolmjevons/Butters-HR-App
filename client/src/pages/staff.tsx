@@ -217,76 +217,82 @@ export default function StaffPage() {
         title="Staff Management"
         description="Manage staff-related functions including leave, terminations, bank account changes, and adding new employees"
         actions={
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>Staff Action</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Staff Actions</DialogTitle>
-                <DialogDescription>
-                  Select the staff-related action you want to perform
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid grid-cols-1 gap-4 py-4">
-                <Button 
-                  variant="outline" 
-                  className="justify-start text-left font-normal h-auto py-3"
-                  onClick={() => {
-                    setLeaveFormOpen(true);
-                  }}
-                >
-                  <CalendarDays className="mr-2 h-4 w-4 text-blue-500" />
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Record Leave</span>
-                    <span className="text-sm text-muted-foreground">Record employee leave days</span>
-                  </div>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="justify-start text-left font-normal h-auto py-3"
-                  onClick={() => {
-                    setTerminationFormOpen(true);
-                  }}
-                >
-                  <UserMinus className="mr-2 h-4 w-4 text-red-500" />
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Record Termination</span>
-                    <span className="text-sm text-muted-foreground">Process employee termination</span>
-                  </div>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="justify-start text-left font-normal h-auto py-3"
-                  onClick={() => {
-                    setBankAccountFormOpen(true);
-                  }}
-                >
-                  <CreditCard className="mr-2 h-4 w-4 text-green-500" />
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Change Bank Account</span>
-                    <span className="text-sm text-muted-foreground">Update employee bank details</span>
-                  </div>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="justify-start text-left font-normal h-auto py-3"
-                  onClick={() => {
-                    setEmployeeWorkflowOpen(true);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4 text-amber-500" />
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Add New Employee</span>
-                    <span className="text-sm text-muted-foreground">Add a new employee to the system</span>
-                  </div>
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <RefreshButton
+              queryKeys={["/api/staff-records", "/api/employees"]}
+              label="Refresh" 
+            />
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>Staff Action</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Staff Actions</DialogTitle>
+                  <DialogDescription>
+                    Select the staff-related action you want to perform
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-4 py-4">
+                  <Button 
+                    variant="outline" 
+                    className="justify-start text-left font-normal h-auto py-3"
+                    onClick={() => {
+                      setLeaveFormOpen(true);
+                    }}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4 text-blue-500" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">Record Leave</span>
+                      <span className="text-sm text-muted-foreground">Record employee leave days</span>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="justify-start text-left font-normal h-auto py-3"
+                    onClick={() => {
+                      setTerminationFormOpen(true);
+                    }}
+                  >
+                    <UserMinus className="mr-2 h-4 w-4 text-red-500" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">Record Termination</span>
+                      <span className="text-sm text-muted-foreground">Process employee termination</span>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="justify-start text-left font-normal h-auto py-3"
+                    onClick={() => {
+                      setBankAccountFormOpen(true);
+                    }}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4 text-green-500" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">Change Bank Account</span>
+                      <span className="text-sm text-muted-foreground">Update employee bank details</span>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="justify-start text-left font-normal h-auto py-3"
+                    onClick={() => {
+                      setEmployeeWorkflowOpen(true);
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4 text-amber-500" />
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">Add New Employee</span>
+                      <span className="text-sm text-muted-foreground">Add a new employee to the system</span>
+                    </div>
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         }
       />
 
