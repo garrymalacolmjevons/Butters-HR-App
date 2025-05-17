@@ -138,15 +138,7 @@ export default function Dashboard() {
         </Card>
       </div>
       
-      <div className="flex justify-end mt-4">
-        <Button 
-          variant="outline" 
-          className="text-primary hover:text-primary-dark flex items-center"
-          onClick={handleRefresh}
-        >
-          Refresh Dashboard Data
-        </Button>
-      </div>
+      {/* Bottom refresh button removed - using the one in the header instead */}
     </div>
   );
 }
