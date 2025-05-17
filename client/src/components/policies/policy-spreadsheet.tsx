@@ -103,12 +103,15 @@ const PolicySpreadsheet = () => {
     },
   });
 
-  // Function to export filtered policies to CSV with combined totals per employee
+  // Function to export active policies to CSV with combined totals per employee
   const exportToCSV = () => {
-    if (filteredPolicies.length === 0) {
+    // Filter out only active policies for export
+    const activePolicies = filteredPolicies.filter(policy => policy.status === "Active");
+    
+    if (activePolicies.length === 0) {
       toast({
-        title: "No policies to export",
-        description: "There are no policies matching your filter criteria to export.",
+        title: "No active policies to export",
+        description: "There are no active policies matching your filter criteria to export.",
         variant: "destructive",
       });
       return;
@@ -127,8 +130,8 @@ const PolicySpreadsheet = () => {
       status: string 
     }>();
     
-    // First pass: group and calculate
-    filteredPolicies.forEach(policy => {
+    // First pass: group and calculate (only active policies)
+    activePolicies.forEach(policy => {
       const employeeKey = policy.employeeCode || policy.employeeId.toString();
       
       if (!employeeTotals.has(employeeKey)) {
@@ -136,7 +139,7 @@ const PolicySpreadsheet = () => {
           name: policy.employeeName || "",
           code: policy.employeeCode || "",
           totalAmount: 0,
-          status: policy.status
+          status: "Active" // Always Active since we filtered
         });
       }
       
@@ -144,8 +147,14 @@ const PolicySpreadsheet = () => {
       employee.totalAmount += policy.amount;
     });
     
-    // Second pass: create CSV rows
-    employeeTotals.forEach((data) => {
+    // Convert to array for sorting
+    const employeeData = Array.from(employeeTotals.values());
+    
+    // Sort alphabetically by employee name for consistent output
+    employeeData.sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Create CSV rows
+    employeeData.forEach((data) => {
       const row = [
         data.name,
         data.code,
@@ -163,14 +172,14 @@ const PolicySpreadsheet = () => {
     // Create a link to download the CSV
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `insurance_policies_totals_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute('download', `insurance_policies_active_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     toast({
       title: "Export complete",
-      description: `Combined policy totals for ${employeeTotals.size} employees have been exported to CSV.`,
+      description: `Active policy totals for ${employeeData.length} employees have been exported to CSV.`,
     });
   };
 
