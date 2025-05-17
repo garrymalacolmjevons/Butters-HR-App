@@ -444,12 +444,12 @@ const GarnisheeOrders: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm font-medium">Monthly Installment (R)</label>
+                <label className="block text-sm font-medium">Monthly Amount (R)</label>
                 <Input 
                   type="number" 
                   step="0.01"
-                  value={newGarnishee.installmentAmount} 
-                  onChange={(e) => setNewGarnishee({...newGarnishee, installmentAmount: e.target.value})}
+                  value={newGarnishee.monthlyAmount} 
+                  onChange={(e) => setNewGarnishee({...newGarnishee, monthlyAmount: e.target.value})}
                   required
                 />
               </div>
@@ -470,6 +470,7 @@ const GarnisheeOrders: React.FC = () => {
                 <Select 
                   value={newGarnishee.status} 
                   onValueChange={(value: any) => setNewGarnishee({...newGarnishee, status: value})}
+                  required
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select status" />
@@ -484,7 +485,16 @@ const GarnisheeOrders: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end space-x-2">
+            <div className="space-y-2 mt-4">
+              <label className="block text-sm font-medium">Comments</label>
+              <textarea 
+                className="w-full min-h-[80px] px-3 py-2 border border-gray-300 rounded-md"
+                value={newGarnishee.comments || ''}
+                onChange={(e) => setNewGarnishee({...newGarnishee, comments: e.target.value})}
+              ></textarea>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-4">
               <Button variant="outline" type="button" onClick={() => setIsFormOpen(false)}>Cancel</Button>
               <Button type="submit">{editMode ? "Update" : "Save"}</Button>
             </div>
