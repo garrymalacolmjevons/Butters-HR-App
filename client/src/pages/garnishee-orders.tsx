@@ -30,18 +30,19 @@ type Employee = {
 type StaffGarnishee = {
   id: number;
   employeeId: number;
+  caseNumber?: string;
   creditor: string;
-  reason: string;
   totalAmount: number;
+  monthlyAmount: number;
+  balance: number;
   startDate: string;
   endDate: string | null;
-  installmentAmount: number;
   status: 'Active' | 'Completed' | 'Cancelled' | 'Suspended';
+  comments?: string;
   createdAt: string;
   updatedAt: string;
   employeeName?: string;
   employeeCode?: string | null;
-  remainingAmount?: number;
 };
 
 type GarnisheePayment = {
@@ -67,11 +68,12 @@ const GarnisheeOrders: React.FC = () => {
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
   const [newGarnishee, setNewGarnishee] = useState({
     employeeId: '',
+    caseNumber: '',
     creditor: '',
-    reason: '',
     totalAmount: '',
-    installmentAmount: '',
+    monthlyAmount: '',
     startDate: '',
+    comments: '',
     status: 'Active'
   });
   const [newPayment, setNewPayment] = useState({
@@ -120,11 +122,12 @@ const GarnisheeOrders: React.FC = () => {
     if (garnishee) {
       setNewGarnishee({
         employeeId: garnishee.employeeId.toString(),
+        caseNumber: garnishee.caseNumber || '',
         creditor: garnishee.creditor,
-        reason: garnishee.reason,
         totalAmount: garnishee.totalAmount.toString(),
-        installmentAmount: garnishee.installmentAmount.toString(),
+        monthlyAmount: garnishee.monthlyAmount.toString(),
         startDate: garnishee.startDate,
+        comments: garnishee.comments || '',
         status: garnishee.status
       });
       setEditMode(true);
@@ -132,11 +135,12 @@ const GarnisheeOrders: React.FC = () => {
     } else {
       setNewGarnishee({
         employeeId: '',
+        caseNumber: '',
         creditor: '',
-        reason: '',
         totalAmount: '',
-        installmentAmount: '',
+        monthlyAmount: '',
         startDate: format(new Date(), 'yyyy-MM-dd'),
+        comments: '',
         status: 'Active'
       });
       setEditMode(false);
@@ -173,11 +177,13 @@ const GarnisheeOrders: React.FC = () => {
     try {
       const garnisheeData = {
         employeeId: parseInt(newGarnishee.employeeId),
+        caseNumber: newGarnishee.caseNumber || null,
         creditor: newGarnishee.creditor,
-        reason: newGarnishee.reason,
         totalAmount: parseFloat(newGarnishee.totalAmount),
-        installmentAmount: parseFloat(newGarnishee.installmentAmount),
+        monthlyAmount: parseFloat(newGarnishee.monthlyAmount),
+        balance: parseFloat(newGarnishee.totalAmount), // Initialize balance with total amount
         startDate: newGarnishee.startDate,
+        comments: newGarnishee.comments || null,
         status: newGarnishee.status
       };
 
@@ -342,13 +348,13 @@ const GarnisheeOrders: React.FC = () => {
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead>Emp. Code</TableHead>
+                  <TableHead>Case Number</TableHead>
                   <TableHead>Creditor</TableHead>
-                  <TableHead>Reason</TableHead>
                   <TableHead>Total Amount</TableHead>
                   <TableHead>Monthly Amount</TableHead>
+                  <TableHead>Balance</TableHead>
                   <TableHead>Start Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Remaining</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
