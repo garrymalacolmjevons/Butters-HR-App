@@ -2,12 +2,13 @@ import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count, inArray } from
 import { db } from "./db";
 import {
   users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
-  insurancePolicies, policyPayments, policyExports,
+  insurancePolicies, policyPayments, policyExports, maternityRecords,
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
   ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
-  InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment, PolicyExport, InsertPolicyExport
+  InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment, PolicyExport, InsertPolicyExport,
+  MaternityRecord, InsertMaternityRecord
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -943,5 +944,64 @@ export class DatabaseStorage implements IStorage {
     );
     
     return await query;
+  }
+
+  // Maternity Records methods
+  async getMaternityRecords(): Promise<(MaternityRecord & { employeeName: string, employeeCode: string | null })[]> {
+    const records = await db
+      .select({
+        ...maternityRecords,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
+      })
+      .from(maternityRecords)
+      .leftJoin(employees, eq(maternityRecords.employeeId, employees.id))
+      .orderBy(desc(maternityRecords.createdAt));
+    
+    return records;
+  }
+
+  async getMaternityRecord(id: number): Promise<(MaternityRecord & { employeeName: string, employeeCode: string | null }) | undefined> {
+    const [record] = await db
+      .select({
+        ...maternityRecords,
+        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeCode: employees.employeeCode
+      })
+      .from(maternityRecords)
+      .leftJoin(employees, eq(maternityRecords.employeeId, employees.id))
+      .where(eq(maternityRecords.id, id));
+    
+    return record;
+  }
+
+  async createMaternityRecord(record: InsertMaternityRecord): Promise<MaternityRecord> {
+    const [result] = await db
+      .insert(maternityRecords)
+      .values(record)
+      .returning();
+    
+    return result;
+  }
+
+  async updateMaternityRecord(id: number, record: Partial<InsertMaternityRecord>): Promise<MaternityRecord | undefined> {
+    const [result] = await db
+      .update(maternityRecords)
+      .set({
+        ...record,
+        updatedAt: new Date()
+      })
+      .where(eq(maternityRecords.id, id))
+      .returning();
+    
+    return result;
+  }
+
+  async deleteMaternityRecord(id: number): Promise<boolean> {
+    const result = await db
+      .delete(maternityRecords)
+      .where(eq(maternityRecords.id, id));
+    
+    return result.rowCount > 0;
   }
 }

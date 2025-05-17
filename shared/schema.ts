@@ -425,3 +425,26 @@ export type BulkImportEmployee = z.infer<typeof bulkImportEmployeeSchema>;
 
 // Type for employee with name combined
 export type EmployeeWithFullName = Employee & { fullName: string };
+
+// Maternity records
+export const maternityRecords = pgTable("maternity_records", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id),
+  fromDate: date("from_date").notNull(),
+  toDate: date("to_date").notNull(),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Maternity records relations
+export const maternityRecordsRelations = relations(maternityRecords, ({ one }) => ({
+  employee: one(employees, {
+    fields: [maternityRecords.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const insertMaternityRecordSchema = createInsertSchema(maternityRecords).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMaternityRecord = z.infer<typeof insertMaternityRecordSchema>;
+export type MaternityRecord = typeof maternityRecords.$inferSelect;
