@@ -286,48 +286,89 @@ export default function ReportsPage() {
         />
       </div>
       
-      {/* Preview Data Section - Only shown when preview data is available */}
-      {showPreview && previewData.length > 0 && (
+      {/* Preview Data Section - Always shown after preview is generated */}
+      {showPreview && (
         <div className="border-2 border-amber-400/20 rounded-md shadow-lg mb-6 overflow-x-auto">
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-4 py-3 text-white">
             <h2 className="text-xl font-bold">Report Preview</h2>
-            <p className="text-gray-300 text-sm">
-              Showing {previewData.length} of {totalRecords} records. {totalRecords > 100 ? "Download the full report to see all records." : ""}
-            </p>
+            {previewData.length > 0 ? (
+              <p className="text-gray-300 text-sm">
+                Showing {previewData.length} of {totalRecords} records. {totalRecords > 100 ? "Download the full report to see all records." : ""}
+              </p>
+            ) : (
+              <p className="text-gray-300 text-sm">
+                No records found matching your criteria. You can adjust the filters or download an empty report with headers.
+              </p>
+            )}
           </div>
           
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Employee Code</TableHead>
-                <TableHead>Employee Name</TableHead>
-                <TableHead>Record Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {previewData.map((record, index) => (
-                <TableRow key={index}>
-                  <TableCell>{record.employeeCode || '-'}</TableCell>
-                  <TableCell>{record.employeeName || '-'}</TableCell>
-                  <TableCell>{record.recordType || '-'}</TableCell>
-                  <TableCell>{record.date ? new Date(record.date).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell>{typeof record.amount === 'number' ? `R${record.amount.toFixed(2)}` : '-'}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">{record.description || '-'}</TableCell>
-                  <TableCell>
-                    {record.approved ? (
-                      <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Approved</Badge>
-                    ) : (
-                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
-                    )}
-                  </TableCell>
+          {previewData.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee Code</TableHead>
+                  <TableHead>Employee Name</TableHead>
+                  <TableHead>Record Type</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {previewData.map((record, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{record.employeeCode || '-'}</TableCell>
+                    <TableCell>{record.employeeName || '-'}</TableCell>
+                    <TableCell>{record.recordType || '-'}</TableCell>
+                    <TableCell>{record.date ? new Date(record.date).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{typeof record.amount === 'number' ? `R${record.amount.toFixed(2)}` : '-'}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{record.description || '-'}</TableCell>
+                    <TableCell>
+                      {record.approved ? (
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Approved</Badge>
+                      ) : (
+                        <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 px-4 bg-gray-50 space-y-6">
+              <div className="text-center text-gray-500">
+                <div className="flex justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <path d="M12 18v-6"></path>
+                    <path d="M9 15h6"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium">No records found</h3>
+                <p className="mt-1 text-sm">There are no payroll records matching your selected criteria.</p>
+              </div>
+              
+              <div className="w-full max-w-md space-y-2">
+                <Button 
+                  onClick={() => generateReport.mutate()} 
+                  disabled={generateReport.isPending}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-black"
+                >
+                  Download Empty Report (Headers Only)
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowPreview(false)}
+                >
+                  Change Report Criteria
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       
@@ -500,8 +541,30 @@ export default function ReportsPage() {
             {showPreview && previewData.length === 0 && (
               <div className="text-center py-2 px-4 bg-yellow-100 border border-yellow-300 rounded-md">
                 <p className="text-yellow-800 font-medium">No data found for the selected criteria.</p>
-                <p className="text-sm text-yellow-700 mt-1">Try adjusting your date range or record type.</p>
+                <p className="text-sm text-yellow-700 mt-1">Try adjusting your date range or include unapproved records.</p>
               </div>
+            )}
+            
+            {/* Add button to download empty report anyway */}
+            {showPreview && previewData.length === 0 && (
+              <Button
+                onClick={() => generateReport.mutate()}
+                disabled={generateReport.isPending}
+                variant="outline"
+                className="mt-2"
+              >
+                {generateReport.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Empty Report (Headers Only)
+                  </>
+                )}
+              </Button>
             )}
           </CardFooter>
         </Card>
