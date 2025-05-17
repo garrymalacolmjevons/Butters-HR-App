@@ -274,16 +274,17 @@ export default function ReportsPage() {
   return (
     <div className="container mx-auto py-6 space-y-8">
       <div className="flex items-center justify-between border-b pb-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payroll Reports</h1>
-          <p className="text-muted-foreground mt-2">
-            Generate and download payroll reports for processing
-          </p>
+        <div className="flex items-center gap-3">
+          <img src="/logo.jpg" alt="Hi-Tec Security Logo" className="h-10 w-auto" />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Payroll Reports</h1>
+            <p className="text-muted-foreground mt-2">
+              Generate and download payroll reports for processing</p>
+          </div>
         </div>
-        <img 
-          src="/logo.jpg" 
-          alt="Hi-Tec Security Logo" 
-          className="h-16 w-auto"
+        <RefreshButton 
+          queryKeys={['/api/export-records']} 
+          label="Refresh Reports"
         />
       </div>
       
