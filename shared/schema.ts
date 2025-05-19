@@ -519,3 +519,42 @@ export type StaffGarnishee = typeof staffGarnishees.$inferSelect;
 export type InsertStaffGarnishee = z.infer<typeof insertStaffGarnisheeSchema>;
 export type GarnisheePayment = typeof garnisheePayments.$inferSelect;
 export type InsertGarnisheePayment = z.infer<typeof insertGarnisheePaymentSchema>;
+
+// Archived Payroll Records - for storing historical earnings and deductions
+export const archivedPayrollRecords = pgTable("archived_payroll_records", {
+  id: serial("id").primaryKey(),
+  originalId: integer("original_id").notNull(), // ID from the original record
+  employeeId: integer("employee_id").references(() => employees.id),
+  recordType: recordTypeEnum("record_type").notNull(),
+  amount: real("amount"),
+  details: text("details"),
+  notes: text("notes"),
+  date: date("date").notNull(),
+  status: text("status").default("Archived"),
+  documentImage: text("document_image"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  totalDays: real("total_days"),
+  approved: boolean("approved").default(false),
+  createdAt: timestamp("created_at"),
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+  archivedBy: integer("archived_by").references(() => users.id).notNull(),
+});
+
+export const archivedPayrollRecordsRelations = defineRelations(archivedPayrollRecords, ({ one }) => ({
+  employee: one(employees, {
+    fields: [archivedPayrollRecords.employeeId],
+    references: [employees.id],
+  }),
+  archivedByUser: one(users, {
+    fields: [archivedPayrollRecords.archivedBy],
+    references: [users.id],
+  }),
+}));
+
+export const insertArchivedPayrollRecordSchema = createInsertSchema(archivedPayrollRecords).omit({ 
+  id: true, 
+  archivedAt: true 
+});
+export type ArchivedPayrollRecord = typeof archivedPayrollRecords.$inferSelect;
+export type InsertArchivedPayrollRecord = z.infer<typeof insertArchivedPayrollRecordSchema>;
