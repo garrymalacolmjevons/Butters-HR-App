@@ -190,13 +190,19 @@ const GarnisheeOrders: React.FC = () => {
       };
 
       if (editMode && selectedGarnishee) {
-        await apiRequest(`/api/staff-garnishees/${selectedGarnishee.id}`, 'PATCH', garnisheeData);
+        await apiRequest(`/api/staff-garnishees/${selectedGarnishee.id}`, {
+          method: 'PATCH', 
+          body: JSON.stringify(garnisheeData)
+        });
         toast({
           title: "Success",
           description: "Garnishee order updated successfully"
         });
       } else {
-        await apiRequest('/api/staff-garnishees', 'POST', garnisheeData);
+        await apiRequest('/api/staff-garnishees', {
+          method: 'POST',
+          body: JSON.stringify(garnisheeData)
+        });
         toast({
           title: "Success",
           description: "Garnishee order added successfully"
@@ -229,7 +235,10 @@ const GarnisheeOrders: React.FC = () => {
         notes: newPayment.notes || null
       };
 
-      await apiRequest('/api/garnishee-payments', 'POST', paymentData);
+      await apiRequest('/api/garnishee-payments', {
+        method: 'POST',
+        body: JSON.stringify(paymentData)
+      });
       toast({
         title: "Success",
         description: "Payment recorded successfully"
@@ -261,7 +270,9 @@ const GarnisheeOrders: React.FC = () => {
     if (!confirm("Are you sure you want to delete this garnishee order? This action cannot be undone.")) return;
     
     try {
-      await apiRequest(`/api/staff-garnishees/${id}`, 'DELETE');
+      await apiRequest(`/api/staff-garnishees/${id}`, {
+        method: 'DELETE'
+      });
       toast({
         title: "Success",
         description: "Garnishee order deleted successfully"
