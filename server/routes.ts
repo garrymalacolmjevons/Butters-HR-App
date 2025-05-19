@@ -1151,5 +1151,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Maternity Records Routes
+  app.get('/api/maternity-records', isAuthenticated, async (req, res, next) => {
+    try {
+      const records = await storage.getMaternityRecords();
+      res.json(records);
+    } catch (error) {
+      console.error('Error fetching maternity records:', error);
+      next(error);
+    }
+  });
+
+  app.get('/api/maternity-records/:id', isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const record = await storage.getMaternityRecord(id);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Maternity record not found" });
+      }
+      
+      res.json(record);
+    } catch (error) {
+      console.error('Error fetching maternity record:', error);
+      next(error);
+    }
+  });
+
+  app.post('/api/maternity-records', isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const data = {
+        ...req.body,
+        createdBy: userId
+      };
+      
+      const record = await storage.createMaternityRecord(data);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Create Maternity Record",
+        details: `Created maternity record for employee ID ${record.employeeId}`
+      });
+      
+      res.status(201).json(record);
+    } catch (error) {
+      console.error('Error creating maternity record:', error);
+      next(error);
+    }
+  });
+
+  app.patch('/api/maternity-records/:id', isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const data = {
+        ...req.body,
+        updatedAt: new Date()
+      };
+      
+      const record = await storage.updateMaternityRecord(id, data);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Maternity record not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Maternity Record",
+        details: `Updated maternity record for employee ID ${record.employeeId}`
+      });
+      
+      res.json(record);
+    } catch (error) {
+      console.error('Error updating maternity record:', error);
+      next(error);
+    }
+  });
+
+  app.delete('/api/maternity-records/:id', isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      // Get the record first for activity logging
+      const record = await storage.getMaternityRecord(id);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Maternity record not found" });
+      }
+      
+      const success = await storage.deleteMaternityRecord(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Maternity record not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Delete Maternity Record",
+        details: `Deleted maternity record for employee ID ${record.employeeId}`
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting maternity record:', error);
+      next(error);
+    }
+  });
+
   return server;
 }
