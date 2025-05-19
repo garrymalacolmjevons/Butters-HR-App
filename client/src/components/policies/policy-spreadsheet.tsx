@@ -513,7 +513,7 @@ const PolicySpreadsheet = () => {
                             });
                             setEditableCell(null);
                           }}
-                          autoFocus
+                          
                         >
                           <SelectTrigger className="h-6 p-1 border-0 focus:ring-0">
                             <SelectValue />
@@ -540,7 +540,7 @@ const PolicySpreadsheet = () => {
                           onChange={handleEditChange}
                           onKeyDown={handleEditKeyDown}
                           onBlur={handleCellUpdate}
-                          autoFocus
+                          
                           className="p-0 border-0 h-6"
                         />
                       ) : (
@@ -559,7 +559,7 @@ const PolicySpreadsheet = () => {
                           onChange={handleEditChange}
                           onKeyDown={handleEditKeyDown}
                           onBlur={handleCellUpdate}
-                          autoFocus
+                          
                           className="p-0 border-0 h-6"
                           type="number"
                           step="0.01"
@@ -589,7 +589,7 @@ const PolicySpreadsheet = () => {
                             });
                             setEditableCell(null);
                           }}
-                          autoFocus
+                          
                         >
                           <SelectTrigger className="p-0 border-0 h-6 w-full">
                             <SelectValue />

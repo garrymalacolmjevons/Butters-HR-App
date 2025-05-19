@@ -51,7 +51,7 @@ export default function Dashboard() {
             isLoadingDashboard
               ? { primary: "-", secondary: "-" }
               : {
-                  primary: "Active Policies",
+                  primary: `${dashboardData?.policyCount || 0} Active Policies`,
                   secondary: "This Month",
                 }
           }
@@ -122,7 +122,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Policy Premiums</span>
+                <span className="text-muted-foreground">Policy Premiums ({dashboardData?.policyCount || 0} policies)</span>
                 <span className="font-medium">{formatCurrency(dashboardData?.policyValueTotal || 0)}</span>
               </div>
               <div className="flex justify-between">
