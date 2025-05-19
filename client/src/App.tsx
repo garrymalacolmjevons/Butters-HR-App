@@ -9,7 +9,7 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
 // Leave page removed
-import Deductions from "@/pages/deductions";
+// Deductions import removed
 import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
 // Reports import removed
@@ -21,7 +21,7 @@ import EarningsPage from "@/pages/earnings";
 import ActivityLogPage from "@/pages/activity";
 import RecordsEditorPage from "@/pages/records-editor";
 import MaternityTracker from "@/pages/maternity-tracker";
-import GarnisheeOrders from "@/pages/garnishee-orders";
+// Garnishee Orders import removed
 import RatesPage from "@/pages/rates";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
@@ -71,13 +71,7 @@ function Router() {
         )} />
       </Route>
       {/* Leave route removed */}
-      <Route path="/deductions">
-        <ProtectedRoute component={() => (
-          <Layout>
-            <Deductions />
-          </Layout>
-        )} />
-      </Route>
+      {/* Deductions route removed */}
       <Route path="/overtime">
         <ProtectedRoute component={() => (
           <Layout>
@@ -141,14 +135,7 @@ function Router() {
         )} />
       </Route>
       
-      {/* Staff Garnishee Orders Page */}
-      <Route path="/garnishee-orders">
-        <ProtectedRoute component={() => (
-          <Layout>
-            <GarnisheeOrders />
-          </Layout>
-        )} />
-      </Route>
+      {/* Staff Garnishee Orders Page removed */}
       
       {/* Rates Configuration Page */}
       <Route path="/rates">

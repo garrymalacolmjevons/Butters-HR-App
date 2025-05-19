@@ -142,11 +142,7 @@ export default function Sidebar() {
           path="/earnings" 
           label="Earnings" 
         />
-        <NavItem 
-          icon={TrendingDown} 
-          path="/deductions" 
-          label="Deductions" 
-        />
+        {/* Deductions removed as requested */}
         <NavItem 
           icon={Shield} 
           path="/policies" 
@@ -163,11 +159,7 @@ export default function Sidebar() {
           path="/maternity-tracker" 
           label="Maternity Tracker" 
         />
-        <NavItem 
-          icon={Gavel} 
-          path="/garnishee-orders" 
-          label="Garnishee Orders" 
-        />
+        {/* Garnishee Orders removed as requested */}
         <NavItem 
           icon={Activity} 
           path="/activity" 
