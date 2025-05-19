@@ -421,6 +421,12 @@ export default function LeavePage() {
         return <Badge variant={variant}>{status}</Badge>;
       },
     }),
+    columnHelper.accessor("hasBeenExported", {
+      header: "Exported",
+      cell: (info) => info.getValue() ? 
+        <Badge variant="success">Yes</Badge> : 
+        <Badge variant="outline">No</Badge>,
+    }),
     columnHelper.display({
       id: "actions",
       header: "Actions",
