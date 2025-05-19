@@ -212,6 +212,9 @@ export function LeaveForm({
     };
     
     console.log("Submitting leave form with values:", submissionValues);
+    console.log("Form is valid, calling onSubmit");
+    
+    // Call the parent component's onSubmit function
     onSubmit(submissionValues);
   };
 
