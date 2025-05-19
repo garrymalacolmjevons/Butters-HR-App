@@ -242,11 +242,6 @@ export default function Sidebar() {
 
       <div className="mt-auto mb-4">
         <NavItem 
-          icon={FolderInput} 
-          path="/import" 
-          label="Import Data" 
-        />
-        <NavItem 
           icon={Settings} 
           path="/settings" 
           label="Settings" 
