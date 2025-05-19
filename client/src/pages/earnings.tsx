@@ -574,7 +574,7 @@ export default function EarningsPage() {
           </div>
           
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowEarningForm(false)}>
+            <Button variant="outline" type="button" onClick={() => setShowEarningForm(false)}>
               Cancel
             </Button>
             <Button 
@@ -584,8 +584,8 @@ export default function EarningsPage() {
               {createEarning.isPending ? "Saving..." : "Save Earning"}
             </Button>
           </div>
-            </form>
-          </FormProvider>
+        </form>
+        </FormProvider>
         </DialogContent>
       </Dialog>
 
