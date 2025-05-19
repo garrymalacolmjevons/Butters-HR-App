@@ -22,6 +22,7 @@ import {
   FileText,
   CreditCard,
   UserCheck,
+  Gavel,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -163,6 +164,16 @@ export default function Sidebar() {
           label="Records Editor" 
         />
         <NavItem 
+          icon={Calendar} 
+          path="/maternity-tracker" 
+          label="Maternity Tracker" 
+        />
+        <NavItem 
+          icon={Gavel} 
+          path="/garnishee-orders" 
+          label="Garnishee Orders" 
+        />
+        <NavItem 
           icon={Activity} 
           path="/activity" 
           label="Activity Logs" 
@@ -179,6 +190,11 @@ export default function Sidebar() {
           icon={Settings} 
           path="/settings" 
           label="Settings" 
+        />
+        <NavItem 
+          icon={CreditCard} 
+          path="/rates" 
+          label="Rates" 
         />
         <NavItem 
           icon={LogOut} 

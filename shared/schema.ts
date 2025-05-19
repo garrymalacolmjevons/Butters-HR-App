@@ -29,6 +29,7 @@ export const overtimeTypeEnum = pgEnum('overtime_type', ['Weekday', 'Saturday', 
 export const userRoleEnum = pgEnum('user_role', ['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']);
 export const insuranceCompanyEnum = pgEnum('insurance_company', ['Sanlam Sky', 'Avbob', 'Old Mutual', 'Provident Fund']);
 export const policyStatusEnum = pgEnum('policy_status', ['Active', 'Cancelled', 'Pending', 'Suspended']);
+export const garnisheeStatusEnum = pgEnum('garnishee_status', ['Active', 'Completed', 'Cancelled', 'Suspended']);
 
 // Users (HR staff)
 export const users = pgTable("users", {
@@ -167,6 +168,17 @@ export const overtimeRates = pgTable("overtime_rates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Earnings Rates
+export const earningsRates = pgTable("earnings_rates", {
+  id: serial("id").primaryKey(),
+  earningType: text("earning_type").notNull(),  // Will store values like 'Special Shift', 'Standby Shift', etc.
+  rate: real("rate").notNull(),
+  description: text("description"),
+  active: boolean("active").default(true),
+  updatedBy: integer("updated_by").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insurance Policies
 export const insurancePolicies = pgTable("insurance_policies", {
   id: serial("id").primaryKey(),
@@ -227,6 +239,7 @@ export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({
 export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
 export const insertOvertimeRateSchema = createInsertSchema(overtimeRates).omit({ id: true, updatedAt: true });
+export const insertEarningsRateSchema = createInsertSchema(earningsRates).omit({ id: true, updatedAt: true });
 export const insertInsurancePolicySchema = createInsertSchema(insurancePolicies).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPolicyPaymentSchema = createInsertSchema(policyPayments).omit({ id: true, createdAt: true });
 export const insertPolicyExportSchema = createInsertSchema(policyExports).omit({ id: true, createdAt: true });
@@ -451,3 +464,97 @@ export const maternityRecordsRelations = defineRelations(maternityRecords, ({ on
 export const insertMaternityRecordSchema = createInsertSchema(maternityRecords).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMaternityRecord = z.infer<typeof insertMaternityRecordSchema>;
 export type MaternityRecord = typeof maternityRecords.$inferSelect;
+
+// Staff Garnishee Orders
+export const staffGarnishees = pgTable("staff_garnishees", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id),
+  caseNumber: varchar("case_number", { length: 100 }),
+  creditor: varchar("creditor", { length: 255 }).notNull(),
+  monthlyAmount: real("monthly_amount").notNull(),
+  totalAmount: real("total_amount").notNull(),
+  balance: real("balance").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  status: garnisheeStatusEnum("status").default('Active'),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const staffGarnisheesRelations = defineRelations(staffGarnishees, ({ one }) => ({
+  employee: one(employees, {
+    fields: [staffGarnishees.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+// Garnishee Payments
+export const garnisheePayments = pgTable("garnishee_payments", {
+  id: serial("id").primaryKey(),
+  garnisheeId: integer("garnishee_id").notNull().references(() => staffGarnishees.id),
+  paymentDate: date("payment_date").notNull(),
+  amount: real("amount").notNull(),
+  reference: varchar("reference", { length: 100 }),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const garnisheePaymentsRelations = defineRelations(garnisheePayments, ({ one }) => ({
+  garnishee: one(staffGarnishees, {
+    fields: [garnisheePayments.garnisheeId],
+    references: [staffGarnishees.id],
+  }),
+  user: one(users, {
+    fields: [garnisheePayments.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const insertStaffGarnisheeSchema = createInsertSchema(staffGarnishees).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGarnisheePaymentSchema = createInsertSchema(garnisheePayments).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type StaffGarnishee = typeof staffGarnishees.$inferSelect;
+export type InsertStaffGarnishee = z.infer<typeof insertStaffGarnisheeSchema>;
+export type GarnisheePayment = typeof garnisheePayments.$inferSelect;
+export type InsertGarnisheePayment = z.infer<typeof insertGarnisheePaymentSchema>;
+
+// Archived Payroll Records - for storing historical earnings and deductions
+export const archivedPayrollRecords = pgTable("archived_payroll_records", {
+  id: serial("id").primaryKey(),
+  originalId: integer("original_id").notNull(), // ID from the original record
+  employeeId: integer("employee_id").references(() => employees.id),
+  recordType: recordTypeEnum("record_type").notNull(),
+  amount: real("amount"),
+  details: text("details"),
+  notes: text("notes"),
+  date: date("date").notNull(),
+  status: text("status").default("Archived"),
+  documentImage: text("document_image"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  totalDays: real("total_days"),
+  approved: boolean("approved").default(false),
+  createdAt: timestamp("created_at"),
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+  archivedBy: integer("archived_by").references(() => users.id).notNull(),
+});
+
+export const archivedPayrollRecordsRelations = defineRelations(archivedPayrollRecords, ({ one }) => ({
+  employee: one(employees, {
+    fields: [archivedPayrollRecords.employeeId],
+    references: [employees.id],
+  }),
+  archivedByUser: one(users, {
+    fields: [archivedPayrollRecords.archivedBy],
+    references: [users.id],
+  }),
+}));
+
+export const insertArchivedPayrollRecordSchema = createInsertSchema(archivedPayrollRecords).omit({ 
+  id: true, 
+  archivedAt: true 
+});
+export type ArchivedPayrollRecord = typeof archivedPayrollRecords.$inferSelect;
+export type InsertArchivedPayrollRecord = z.infer<typeof insertArchivedPayrollRecordSchema>;

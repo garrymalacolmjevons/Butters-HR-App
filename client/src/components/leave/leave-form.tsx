@@ -203,24 +203,41 @@ export function LeaveForm({
   };
 
   const handleSubmit = (values: LeaveFormValues) => {
-    // Ensure the document image URL is included
-    const valuesWithImage = {
+    // Print raw values received from the form
+    console.log("Raw form values received:", values);
+    
+    // Always use current date value for record date
+    const submissionValues: LeaveFormValues = {
       ...values,
-      documentImage: capturedImage,
-      // Ensure date fields are properly formatted as strings
-      startDate: values.startDate ? 
-        (typeof values.startDate === 'string' ? values.startDate : values.startDate.toISOString().split('T')[0]) 
-        : undefined,
-      endDate: values.endDate ? 
-        (typeof values.endDate === 'string' ? values.endDate : values.endDate.toISOString().split('T')[0]) 
-        : undefined,
-      date: values.date ? 
-        (typeof values.date === 'string' ? values.date : values.date.toISOString().split('T')[0]) 
-        : undefined,
+      documentImage: capturedImage || undefined,
+      // Make sure we're working with Date objects
+      date: new Date(), // Automatically set to today
+      // Since we removed the toggle, provide a default approved value
+      approved: false
     };
     
-    console.log("Submitting leave form with values:", valuesWithImage);
-    onSubmit(valuesWithImage);
+    // Log detailed information about each field for debugging
+    console.log("Detailed field information:");
+    console.log("- employeeId:", submissionValues.employeeId, typeof submissionValues.employeeId);
+    console.log("- recordType:", submissionValues.recordType, typeof submissionValues.recordType);
+    console.log("- date:", submissionValues.date, typeof submissionValues.date);
+    console.log("- startDate:", submissionValues.startDate, typeof submissionValues.startDate);
+    console.log("- endDate:", submissionValues.endDate, typeof submissionValues.endDate);
+    console.log("- totalDays:", submissionValues.totalDays, typeof submissionValues.totalDays);
+    console.log("- details:", submissionValues.details, typeof submissionValues.details);
+    console.log("- notes:", submissionValues.notes, typeof submissionValues.notes);
+    console.log("- documentImage:", submissionValues.documentImage ? "Present" : "Not present");
+    
+    console.log("Submitting leave form with values:", submissionValues);
+    console.log("Form is valid, calling onSubmit");
+    
+    try {
+      // Call the parent component's onSubmit function
+      onSubmit(submissionValues);
+      console.log("onSubmit function called successfully");
+    } catch (error) {
+      console.error("Error calling onSubmit function:", error);
+    }
   };
 
   return (
@@ -371,6 +388,7 @@ export function LeaveForm({
                         min="0.5"
                         step="0.5"
                         {...field}
+                        value={field.value?.toString() || ""}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
                       />
                     </FormControl>
@@ -389,7 +407,11 @@ export function LeaveForm({
                   <FormItem className="col-span-2">
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Enter any additional information about this leave" {...field} />
+                      <Textarea 
+                        placeholder="Enter any additional information about this leave" 
+                        {...field} 
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -486,48 +508,22 @@ export function LeaveForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="approved"
-                render={({ field }) => (
-                  <FormItem className="col-span-2 flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Was this leave approved?</FormLabel>
-                      <FormDescription>
-                        Toggle to confirm whether this leave was approved by management
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Approval toggle removed to test if it was causing submission issues */}
               
               {/* Current Date Field */}
+              {/* Hidden date field - automatically set to current date */}
               <FormField
                 control={form.control}
                 name="date"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Record Date</FormLabel>
+                  <FormItem className="hidden">
                     <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        value={selectedRecordDate || ""}
-                        onChange={(e) => {
-                          // Use the input's raw value string for display
-                          field.onChange(e.target.value);
-                          setSelectedRecordDate(e.target.value);
-                        }}
+                      <Input 
+                        type="hidden" 
+                        {...field} 
+                        value={selectedRecordDate}
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />

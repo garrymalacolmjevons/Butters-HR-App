@@ -1,214 +1,156 @@
 import fs from 'fs';
 import { parse } from 'csv-parse/sync';
-import { db } from './db';
-import { employees, insurancePolicies } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import ws from 'ws';
+
+// Configure neon for WebSocket support
+neonConfig.webSocketConstructor = ws;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Check for DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL must be set');
+}
+
+// Create database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+interface PolicyRecord {
+  Employee: string;
+  'Last Name': string;
+  'First Name': string;
+  Company: string;
+  Value: string;
+  Comment: string;
+  Status: 'Active' | 'Cancelled';
+}
 
 async function importPolicies() {
-  console.log('Starting policy import...');
-  
   try {
-    // Read the CSV file
-    const csvData = fs.readFileSync('./attached_assets/ButtsPolicy Import.csv', 'utf-8');
+    // First clean up existing policy data
+    console.log('Clearing existing insurance policy data...');
+    await pool.query('DELETE FROM insurance_policies');
+    console.log('Existing insurance policy data cleared');
+
+    // Read CSV file
+    const filePath = path.join(__dirname, '../attached_assets/ButtsPolicy Import.csv');
+    console.log(`Reading file from: ${filePath}`);
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
     
-    // Parse the CSV file
-    const records = parse(csvData, {
+    // Parse CSV content
+    const records = parse(fileContent, {
       columns: true,
       skip_empty_lines: true,
-      trim: true
-    });
+    }) as PolicyRecord[];
     
-    console.log(`Found ${records.length} records in CSV file`);
+    console.log(`Found ${records.length} policy records to import`);
     
-    let created = 0;
-    let updated = 0;
-    let errors = 0;
+    // Insert each policy into the database
+    let successCount = 0;
     
-    // Process each record
-    for (const record of records) {
+    for (const policy of records) {
       try {
-        // Extract employee code, could be numeric or string format
-        const employeeCode = record['Employee'] || '';
-        if (!employeeCode && employeeCode !== '0') {
-          console.log('Skipping record with missing employee code:', record);
-          errors++;
+        if (!policy.Company || !policy.Status) {
+          console.log('Skipping incomplete policy record:', policy);
           continue;
         }
-        
-        // Extract company name and normalize it
-        const companyRaw = record['Company'] || '';
-        if (!companyRaw) {
-          console.log('Skipping record with missing company:', record);
-          errors++;
-          continue;
-        }
-        
-        // Normalize company name (fix typos like "Old Mutul" to "Old Mutual")
-        let company = companyRaw;
-        if (companyRaw.toLowerCase().includes('mutual') || companyRaw.toLowerCase().includes('mutul')) {
-          company = 'Old Mutual';
-        } else if (companyRaw.toLowerCase().includes('sanlam')) {
-          company = 'Sanlam Sky';
-        } else if (companyRaw.toLowerCase().includes('avbob')) {
-          company = 'Avbob';
-        } else if (companyRaw.toLowerCase().includes('provident')) {
-          company = 'Provident Fund';
-        }
-        
-        // Extract amount/premium, handle 'R' prefix
-        let amount = record['Value'] || '';
-        if (!amount) {
-          console.log('Skipping record with missing amount:', record);
-          errors++;
-          continue;
-        }
-        
-        if (typeof amount === 'string') {
-          // Remove 'R' currency marker and other non-numeric characters except decimals
-          amount = amount.replace(/[^0-9.]/g, '');
-        }
-        
-        // Convert to number
-        const amountValue = parseFloat(amount);
-        if (isNaN(amountValue)) {
-          console.log('Skipping record with invalid amount:', record);
-          errors++;
-          continue;
-        }
-        
-        // Extract notes/policy number
-        const notes = record['Comment'] || '';
-        
-        // Extract policy number from notes if present
-        let policyNumber = '';
-        if (notes) {
-          const policyNumberMatch = notes.match(/POLICY\s*NUMBER\s*:?\s*([A-Z0-9]+)/i);
-          if (policyNumberMatch && policyNumberMatch[1]) {
-            policyNumber = policyNumberMatch[1].trim();
+
+        // Extract policy number from comment
+        const policyNumberMatch = policy.Comment?.match(/POLICY\s+NUMBER[:\s]+([^\s,]+)/i);
+        const policyNumber = policyNumberMatch ? policyNumberMatch[1] : null;
+
+        // Clean up value (remove 'R' prefix and convert to number)
+        const valueString = policy.Value?.replace('R', '')?.trim() || '0';
+        const value = parseFloat(valueString) || 0;
+
+        // Find employee by code
+        let employeeId = null;
+        if (policy.Employee) {
+          const result = await pool.query(
+            'SELECT id FROM employees WHERE employee_code = $1',
+            [policy.Employee]
+          );
+          
+          if (result.rows.length > 0) {
+            employeeId = result.rows[0].id;
           }
         }
-        
-        if (!policyNumber) {
-          // If policy number couldn't be extracted, use a default format
-          policyNumber = `${company.substring(0, 2).toUpperCase()}${employeeCode}${new Date().getTime().toString().substring(8)}`;
-        }
-        
-        // Extract status
-        const status = record['Status'] || 'Active';
-        const normalizedStatus = status.toLowerCase() === 'active' ? 'Active' : 'Cancelled';
-        
-        // Extract employee names
-        const lastName = record['Last Name'] || '';
-        const firstName = record['First Name'] || '';
-        
-        // Find employee in database
-        let employeeId: number | null = null;
-        const employeeResult = await db.select()
-          .from(employees)
-          .where(eq(employees.employeeCode, employeeCode))
-          .limit(1);
-        
-        if (employeeResult.length > 0) {
-          employeeId = employeeResult[0].id;
-        } else {
-          // If employee doesn't exist and we have name data, create a new employee
-          if (lastName && firstName) {
-            console.log(`Creating new employee: ${firstName} ${lastName} (${employeeCode})`);
-            const newEmployee = await db.insert(employees)
-              .values({
-                employeeCode,
-                firstName,
-                lastName,
-                fullName: `${firstName} ${lastName}`,
-                email: '',
-                phone: '',
-                position: 'Unknown',
-                department: 'Security',
-                status: 'Active',
-                dateJoined: new Date()
-              })
-              .returning();
+
+        if (!employeeId) {
+          // Try to find by first and last name
+          if (policy['First Name'] && policy['Last Name']) {
+            const result = await pool.query(
+              'SELECT id FROM employees WHERE first_name ILIKE $1 AND last_name ILIKE $2',
+              [policy['First Name'], policy['Last Name']]
+            );
             
-            employeeId = newEmployee[0].id;
-            console.log(`Created new employee with ID ${employeeId}`);
-          } else {
-            console.log(`Skipping record because employee doesn't exist: ${employeeCode}`);
-            errors++;
-            continue;
+            if (result.rows.length > 0) {
+              employeeId = result.rows[0].id;
+            }
           }
         }
-        
-        // Check if policy already exists
-        const existingPolicy = await db.select()
-          .from(insurancePolicies)
-          .where(eq(insurancePolicies.policyNumber, policyNumber))
-          .limit(1);
-        
-        const today = new Date().toISOString().split('T')[0];
-        
-        if (existingPolicy.length > 0) {
-          // Update existing policy
-          await db.update(insurancePolicies)
-            .set({
-              employeeId,
-              company,
-              amount: amountValue,
-              notes,
-              status: normalizedStatus,
-              updatedBy: 1, // Admin user ID
-              updatedAt: new Date()
-            })
-            .where(eq(insurancePolicies.id, existingPolicy[0].id));
-          
-          console.log(`Updated policy: ${policyNumber} for employee ${employeeCode}`);
-          updated++;
-        } else {
-          // Create new policy
-          await db.insert(insurancePolicies)
-            .values({
-              employeeId,
-              company,
-              policyNumber,
-              amount: amountValue,
-              startDate: today,
-              endDate: normalizedStatus === 'Cancelled' ? today : null,
-              notes,
-              status: normalizedStatus,
-              createdBy: 1, // Admin user ID
-              updatedBy: 1, // Admin user ID
-              createdAt: new Date(),
-              updatedAt: new Date()
-            });
-          
-          console.log(`Created new policy: ${policyNumber} for employee ${employeeCode}`);
-          created++;
+
+        if (!employeeId) {
+          console.log(`Could not find employee for policy: ${policy.Employee} ${policy['First Name']} ${policy['Last Name']}`);
+          continue;
         }
-      } catch (error) {
-        console.error('Error processing record:', error, record);
-        errors++;
+
+        // Map policy data from CSV to database schema
+        const insertQuery = `
+          INSERT INTO insurance_policies (
+            employee_id, company, policy_number, amount, notes, status, start_date, created_by, updated_by, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, 1, 1, NOW(), NOW()
+          ) RETURNING id
+        `;
+        
+        // Fix company name mappings
+        let companyName = policy.Company;
+        if (companyName === 'Old Mutul') {
+          companyName = 'Old Mutual';
+        }
+
+        // Set current date for start_date if not provided
+        const today = new Date();
+        
+        // Values to insert with today's date for start_date
+        const values = [
+          employeeId,
+          companyName,
+          policyNumber,
+          value,
+          policy.Comment,
+          policy.Status === 'Active' ? 'Active' : 'Cancelled',
+          today
+        ];
+        
+        // Execute query
+        const result = await pool.query(insertQuery, values);
+        
+        if (result.rows.length > 0) {
+          successCount++;
+          console.log(`Imported policy for ${policy['First Name']} ${policy['Last Name']} - ${policy.Company} - ${policyNumber}`);
+        }
+      } catch (err) {
+        console.error(`Error importing policy for ${policy['First Name']} ${policy['Last Name']}:`, err);
       }
     }
     
-    console.log(`Import completed: ${created} created, ${updated} updated, ${errors} errors`);
-    
-    // Create an activity log
-    await db.execute(
-      `INSERT INTO activity_logs (user_id, action, details) 
-       VALUES (1, 'Import Policies', 'Imported ${created + updated} policies (${created} new, ${updated} updated, ${errors} errors)')`
-    );
-    
-    console.log('Activity log created');
-    
+    console.log(`Successfully imported ${successCount} insurance policies out of ${records.length} total`);
   } catch (error) {
-    console.error('Import failed:', error);
+    console.error('Error importing policy data:', error);
+  } finally {
+    // Close the pool
+    await pool.end();
   }
 }
 
 // Run the import
-importPolicies().then(() => {
-  console.log('Import script completed');
-  process.exit(0);
-}).catch(err => {
-  console.error('Import script failed:', err);
-  process.exit(1);
-});
+importPolicies();
