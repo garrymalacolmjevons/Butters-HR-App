@@ -472,6 +472,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  app.post("/api/payroll-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const data = insertPayrollRecordSchema.parse({
+        ...req.body,
+        createdBy: userId
+      });
+      
+      const record = await storage.createPayrollRecord(data);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Create Payroll Record",
+        details: `Created ${record.recordType} record for employee ID ${record.employeeId}`
+      });
+      
+      res.status(201).json(record);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+  
+  app.patch("/api/payroll-records/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid record ID" });
+      }
+      
+      const data = insertPayrollRecordSchema.partial().parse({
+        ...req.body,
+        updatedBy: userId
+      });
+      
+      const record = await storage.updatePayrollRecord(id, data);
+      
+      if (!record) {
+        return res.status(404).json({ error: "Record not found" });
+      }
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Update Payroll Record",
+        details: `Updated ${record.recordType} record for employee ID ${record.employeeId}`
+      });
+      
+      res.json(record);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      next(error);
+    }
+  });
+  
   // Records Editor API endpoints
   app.get("/api/payroll/records", isAuthenticated, async (req, res, next) => {
     try {
