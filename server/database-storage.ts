@@ -1027,39 +1027,73 @@ export class DatabaseStorage implements IStorage {
     employeeId?: number,
     status?: string
   }): Promise<(StaffGarnishee & { employeeName: string, employeeCode: string | null })[]> {
-    let query = db
-      .select({
-        ...staffGarnishees,
-        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
-        employeeCode: employees.employeeCode
-      })
-      .from(staffGarnishees)
-      .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id));
-    
-    if (filter?.employeeId) {
-      query = query.where(eq(staffGarnishees.employeeId, filter.employeeId));
+    try {
+      let query = db
+        .select({
+          id: staffGarnishees.id,
+          employeeId: staffGarnishees.employeeId,
+          caseNumber: staffGarnishees.caseNumber,
+          creditor: staffGarnishees.creditor,
+          monthlyAmount: staffGarnishees.monthlyAmount,
+          totalAmount: staffGarnishees.totalAmount,
+          balance: staffGarnishees.balance,
+          startDate: staffGarnishees.startDate,
+          endDate: staffGarnishees.endDate,
+          status: staffGarnishees.status,
+          comments: staffGarnishees.comments,
+          createdAt: staffGarnishees.createdAt,
+          updatedAt: staffGarnishees.updatedAt,
+          employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+          employeeCode: employees.employeeCode
+        })
+        .from(staffGarnishees)
+        .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id));
+      
+      if (filter?.employeeId) {
+        query = query.where(eq(staffGarnishees.employeeId, filter.employeeId));
+      }
+      
+      if (filter?.status) {
+        query = query.where(eq(staffGarnishees.status, filter.status as any));
+      }
+      
+      const garnishees = await query.orderBy(desc(staffGarnishees.createdAt));
+      return garnishees;
+    } catch (error) {
+      console.error("Error in getStaffGarnishees:", error);
+      return [];
     }
-    
-    if (filter?.status) {
-      query = query.where(eq(staffGarnishees.status, filter.status as any));
-    }
-    
-    const garnishees = await query.orderBy(desc(staffGarnishees.createdAt));
-    return garnishees;
   }
   
   async getStaffGarnishee(id: number): Promise<(StaffGarnishee & { employeeName: string, employeeCode: string | null }) | undefined> {
-    const [garnishee] = await db
-      .select({
-        ...staffGarnishees,
-        employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
-        employeeCode: employees.employeeCode
-      })
-      .from(staffGarnishees)
-      .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id))
-      .where(eq(staffGarnishees.id, id));
-    
-    return garnishee;
+    try {
+      const [garnishee] = await db
+        .select({
+          id: staffGarnishees.id,
+          employeeId: staffGarnishees.employeeId,
+          caseNumber: staffGarnishees.caseNumber,
+          creditor: staffGarnishees.creditor,
+          monthlyAmount: staffGarnishees.monthlyAmount,
+          totalAmount: staffGarnishees.totalAmount,
+          balance: staffGarnishees.balance,
+          startDate: staffGarnishees.startDate,
+          endDate: staffGarnishees.endDate,
+          status: staffGarnishees.status,
+          comments: staffGarnishees.comments,
+          createdAt: staffGarnishees.createdAt,
+          updatedAt: staffGarnishees.updatedAt,
+          employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+          employeeCode: employees.employeeCode
+        })
+        .from(staffGarnishees)
+        .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id))
+        .where(eq(staffGarnishees.id, id));
+      
+      return garnishee;
+    } catch (error) {
+      console.error("Error in getStaffGarnishee:", error);
+      return undefined;
+    }
   }
   
   async createStaffGarnishee(garnishee: InsertStaffGarnishee): Promise<StaffGarnishee> {
@@ -1187,25 +1221,34 @@ export class DatabaseStorage implements IStorage {
     totalOutstanding: number;
     monthlyPayments: number;
   }> {
-    const [activeCount] = await db
-      .select({ count: count() })
-      .from(staffGarnishees)
-      .where(eq(staffGarnishees.status, 'Active'));
-    
-    const [totalOutstanding] = await db
-      .select({ sum: sql<number>`SUM(${staffGarnishees.balance})` })
-      .from(staffGarnishees)
-      .where(eq(staffGarnishees.status, 'Active'));
-    
-    const [monthlyTotal] = await db
-      .select({ sum: sql<number>`SUM(${staffGarnishees.monthlyAmount})` })
-      .from(staffGarnishees)
-      .where(eq(staffGarnishees.status, 'Active'));
-    
-    return {
-      activeGarnishees: activeCount?.count || 0,
-      totalOutstanding: totalOutstanding?.sum || 0,
-      monthlyPayments: monthlyTotal?.sum || 0
-    };
+    try {
+      const [activeCount] = await db
+        .select({ count: count() })
+        .from(staffGarnishees)
+        .where(eq(staffGarnishees.status, 'Active'));
+      
+      const [totalOutstanding] = await db
+        .select({ sum: sql<number>`SUM(${staffGarnishees.balance})` })
+        .from(staffGarnishees)
+        .where(eq(staffGarnishees.status, 'Active'));
+      
+      const [monthlyTotal] = await db
+        .select({ sum: sql<number>`SUM(${staffGarnishees.monthlyAmount})` })
+        .from(staffGarnishees)
+        .where(eq(staffGarnishees.status, 'Active'));
+      
+      return {
+        activeGarnishees: activeCount?.count || 0,
+        totalOutstanding: totalOutstanding?.sum || 0,
+        monthlyPayments: monthlyTotal?.sum || 0
+      };
+    } catch (error) {
+      console.error("Error in getGarnisheeDashboardData:", error);
+      return {
+        activeGarnishees: 0,
+        totalOutstanding: 0,
+        monthlyPayments: 0
+      };
+    }
   }
 }
