@@ -326,8 +326,7 @@ const PolicySpreadsheet = () => {
           <CardTitle>Insurance Policies Spreadsheet</CardTitle>
           <div className="flex gap-2">
             <RefreshButton
-              queryKeys={["/api/policies"]}
-              label="Refresh Policies"
+              queryKey={"/api/policies"}
             />
             <Button 
               variant="outline" 
@@ -583,8 +582,14 @@ const PolicySpreadsheet = () => {
                           value={editValue}
                           onValueChange={(value) => {
                             setEditValue(value);
-                            setTimeout(() => handleCellUpdate(), 0);
+                            // Immediately update when a dropdown selection is made
+                            updatePolicyMutation.mutate({
+                              id: policy.id,
+                              data: { status: value }
+                            });
+                            setEditableCell(null);
                           }}
+                          autoFocus
                         >
                           <SelectTrigger className="p-0 border-0 h-6 w-full">
                             <SelectValue />
