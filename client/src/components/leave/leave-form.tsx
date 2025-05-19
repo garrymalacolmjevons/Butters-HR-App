@@ -203,6 +203,9 @@ export function LeaveForm({
   };
 
   const handleSubmit = (values: LeaveFormValues) => {
+    // Print raw values received from the form
+    console.log("Raw form values received:", values);
+    
     // Always use current date value for record date
     const submissionValues: LeaveFormValues = {
       ...values,
@@ -211,11 +214,28 @@ export function LeaveForm({
       date: new Date(), // Automatically set to today
     };
     
+    // Log detailed information about each field for debugging
+    console.log("Detailed field information:");
+    console.log("- employeeId:", submissionValues.employeeId, typeof submissionValues.employeeId);
+    console.log("- recordType:", submissionValues.recordType, typeof submissionValues.recordType);
+    console.log("- date:", submissionValues.date, typeof submissionValues.date);
+    console.log("- startDate:", submissionValues.startDate, typeof submissionValues.startDate);
+    console.log("- endDate:", submissionValues.endDate, typeof submissionValues.endDate);
+    console.log("- totalDays:", submissionValues.totalDays, typeof submissionValues.totalDays);
+    console.log("- details:", submissionValues.details, typeof submissionValues.details);
+    console.log("- notes:", submissionValues.notes, typeof submissionValues.notes);
+    console.log("- documentImage:", submissionValues.documentImage ? "Present" : "Not present");
+    
     console.log("Submitting leave form with values:", submissionValues);
     console.log("Form is valid, calling onSubmit");
     
-    // Call the parent component's onSubmit function
-    onSubmit(submissionValues);
+    try {
+      // Call the parent component's onSubmit function
+      onSubmit(submissionValues);
+      console.log("onSubmit function called successfully");
+    } catch (error) {
+      console.error("Error calling onSubmit function:", error);
+    }
   };
 
   return (

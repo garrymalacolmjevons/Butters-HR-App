@@ -557,12 +557,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payroll-records", isAuthenticated, async (req, res, next) => {
     try {
       const userId = (req.user as any).id;
-      const { sendNotification, ...payloadData } = req.body;
+      console.log("Received payroll record request body:", JSON.stringify(req.body, null, 2));
       
-      const data = insertPayrollRecordSchema.parse({
-        ...payloadData,
-        createdBy: userId
-      });
+      const { sendNotification, ...payloadData } = req.body;
+      console.log("Processing payload data:", JSON.stringify(payloadData, null, 2));
+      
+      let data;
+      try {
+        data = insertPayrollRecordSchema.parse({
+          ...payloadData,
+          createdBy: userId
+        });
+        console.log("Validation passed, processed data:", JSON.stringify(data, null, 2));
+      } catch (validationError) {
+        console.error("Validation error:", validationError);
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationError instanceof Error ? validationError.message : "Unknown validation error" 
+        });
+      }
       
       const record = await storage.createPayrollRecord(data);
       
