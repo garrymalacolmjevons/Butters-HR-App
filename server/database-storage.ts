@@ -1,15 +1,14 @@
 import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
-  insurancePolicies, policyPayments, policyExports, maternityRecords, archivedPayrollRecords, staffGarnishees, garnisheePayments,
+  users, employees, payrollRecords, exportRecords, emailSettings, activityLogs, overtimeRates,
+  insurancePolicies, policyPayments, policyExports, maternityRecords, archivedPayrollRecords,
   User, InsertUser, Employee, InsertEmployee,
-  PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
+  PayrollRecord, InsertPayrollRecord,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
   ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
   InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment, PolicyExport, InsertPolicyExport,
-  MaternityRecord, InsertMaternityRecord, ArchivedPayrollRecord, InsertArchivedPayrollRecord,
-  StaffGarnishee, InsertStaffGarnishee, GarnisheePayment, InsertGarnisheePayment
+  MaternityRecord, InsertMaternityRecord, ArchivedPayrollRecord, InsertArchivedPayrollRecord
 } from "@shared/schema";
 import { IStorage } from "./storage";
 

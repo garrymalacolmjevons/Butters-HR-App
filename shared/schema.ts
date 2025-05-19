@@ -102,24 +102,7 @@ export const payrollRecords = pgTable("payroll_records", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Recurring Deductions
-export const recurringDeductions = pgTable("recurring_deductions", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull(),
-  deductionName: text("deduction_name").notNull(),
-  amount: real("amount").notNull(),
-  startDate: date("start_date").notNull(), // When the recurring deduction begins
-  endDate: date("end_date"), // Optional end date (null means indefinite)
-  frequency: text("frequency").default("monthly"), // monthly, weekly, etc.
-  description: text("description"),
-  approved: boolean("approved").default(false), // Was this deduction approved
-  referenceNumber: text("reference_number"), // For cross-referencing with physical documents
-  documentImage: text("document_image"), // URL to the signed document image
-  notes: text("notes"),
-  createdBy: integer("created_by").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  active: boolean("active").default(true), // To deactivate without deleting
-});
+// Recurring Deductions table removed
 
 // Export Records
 export const exportRecords = pgTable("export_records", {
@@ -234,7 +217,7 @@ export const insertEmployeeSchema = createInsertSchema(employees).omit({
   documentIds: true // We'll handle this separately
 });
 export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({ id: true, createdAt: true });
-export const insertRecurringDeductionSchema = createInsertSchema(recurringDeductions).omit({ id: true, createdAt: true });
+// Recurring Deduction schema removed
 export const insertExportRecordSchema = createInsertSchema(exportRecords).omit({ id: true, createdAt: true });
 export const insertEmailSettingsSchema = createInsertSchema(emailSettings).omit({ id: true, updatedAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, timestamp: true });
@@ -318,14 +301,7 @@ export const relations = {
         },
       },
     },
-    recurringDeductions: {
-      one: {
-        recurringDeductions: {
-          references: [employees.id],
-          foreignKey: recurringDeductions.employeeId,
-        },
-      },
-    },
+    // Recurring deductions relations removed
     insurancePolicies: {
       one: {
         insurancePolicies: {
@@ -335,24 +311,7 @@ export const relations = {
       },
     },
   },
-  recurringDeductions: {
-    employee: {
-      one: {
-        employees: {
-          references: [employees.id],
-          foreignKey: recurringDeductions.employeeId,
-        },
-      },
-    },
-    createdByUser: {
-      one: {
-        users: {
-          references: [users.id],
-          foreignKey: recurringDeductions.createdBy,
-        },
-      },
-    },
-  },
+  // Recurring deductions relations removed
   insurancePolicies: {
     employee: {
       one: {
@@ -414,8 +373,7 @@ export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type PayrollRecord = typeof payrollRecords.$inferSelect;
 export type InsertPayrollRecord = z.infer<typeof insertPayrollRecordSchema>;
-export type RecurringDeduction = typeof recurringDeductions.$inferSelect;
-export type InsertRecurringDeduction = z.infer<typeof insertRecurringDeductionSchema>;
+// Recurring deduction types removed
 export type ExportRecord = typeof exportRecords.$inferSelect;
 // Extended schema for export records that includes tracking
 export const extendedExportRecordSchema = insertExportRecordSchema.extend({
@@ -465,60 +423,10 @@ export const insertMaternityRecordSchema = createInsertSchema(maternityRecords).
 export type InsertMaternityRecord = z.infer<typeof insertMaternityRecordSchema>;
 export type MaternityRecord = typeof maternityRecords.$inferSelect;
 
-// Staff Garnishee Orders
-export const staffGarnishees = pgTable("staff_garnishees", {
-  id: serial("id").primaryKey(),
-  employeeId: integer("employee_id").notNull().references(() => employees.id),
-  caseNumber: varchar("case_number", { length: 100 }),
-  creditor: varchar("creditor", { length: 255 }).notNull(),
-  monthlyAmount: real("monthly_amount").notNull(),
-  totalAmount: real("total_amount").notNull(),
-  balance: real("balance").notNull(),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date"),
-  status: garnisheeStatusEnum("status").default('Active'),
-  comments: text("comments"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at"),
-});
+// Staff Garnishee Orders table removed
+// Garnishee Payments table removed
 
-export const staffGarnisheesRelations = defineRelations(staffGarnishees, ({ one }) => ({
-  employee: one(employees, {
-    fields: [staffGarnishees.employeeId],
-    references: [employees.id],
-  }),
-}));
-
-// Garnishee Payments
-export const garnisheePayments = pgTable("garnishee_payments", {
-  id: serial("id").primaryKey(),
-  garnisheeId: integer("garnishee_id").notNull().references(() => staffGarnishees.id),
-  paymentDate: date("payment_date").notNull(),
-  amount: real("amount").notNull(),
-  reference: varchar("reference", { length: 100 }),
-  createdBy: integer("created_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at"),
-});
-
-export const garnisheePaymentsRelations = defineRelations(garnisheePayments, ({ one }) => ({
-  garnishee: one(staffGarnishees, {
-    fields: [garnisheePayments.garnisheeId],
-    references: [staffGarnishees.id],
-  }),
-  user: one(users, {
-    fields: [garnisheePayments.createdBy],
-    references: [users.id],
-  }),
-}));
-
-export const insertStaffGarnisheeSchema = createInsertSchema(staffGarnishees).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertGarnisheePaymentSchema = createInsertSchema(garnisheePayments).omit({ id: true, createdAt: true, updatedAt: true });
-
-export type StaffGarnishee = typeof staffGarnishees.$inferSelect;
-export type InsertStaffGarnishee = z.infer<typeof insertStaffGarnisheeSchema>;
-export type GarnisheePayment = typeof garnisheePayments.$inferSelect;
-export type InsertGarnisheePayment = z.infer<typeof insertGarnisheePaymentSchema>;
+// Garnishee relations and types removed
 
 // Archived Payroll Records - for storing historical earnings and deductions
 export const archivedPayrollRecords = pgTable("archived_payroll_records", {
