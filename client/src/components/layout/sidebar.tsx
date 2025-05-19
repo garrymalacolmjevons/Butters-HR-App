@@ -22,7 +22,6 @@ import {
   FileText,
   CreditCard,
   UserCheck,
-  Gavel,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
