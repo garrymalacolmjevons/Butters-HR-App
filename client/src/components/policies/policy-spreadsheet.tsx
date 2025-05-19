@@ -596,7 +596,7 @@ const PolicySpreadsheet = () => {
                           </SelectTrigger>
                           <SelectContent>
                             {POLICY_STATUSES.map(status => (
-                              <SelectItem key={status} value={status}>{status}</SelectItem>
+                              <SelectItem key={status} value={status || "Unknown"}>{status || "Unknown"}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
