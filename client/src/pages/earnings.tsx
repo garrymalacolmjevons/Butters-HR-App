@@ -36,7 +36,7 @@ import { EarningsTable } from "@/components/earnings/earnings-table";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { EnhancedEmployeeSearch } from "@/components/employees/enhanced-employee-search";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 
 interface EarningFormData {
   employeeId: number | null;
@@ -419,20 +419,22 @@ export default function EarningsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
-            {/* Enhanced Employee Search */}
-            <div className="space-y-2">
-              {/* Use React Hook Form for the employee field */}
-              <EnhancedEmployeeSearch
-                control={form.control}
-                name="employeeId"
-                required
-                onChange={(value) => {
-                  // Update the form data state when the employee selection changes
-                  handleInputChange("employeeId", value);
-                }}
-              />
-            </div>
+          <FormProvider {...form}>
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveEarning(e); }}>
+              <div className="grid gap-4 py-4">
+                {/* Enhanced Employee Search */}
+                <div className="space-y-2">
+                  <Label htmlFor="employee">Employee</Label>
+                  <EnhancedEmployeeSearch
+                    control={form.control}
+                    name="employeeId"
+                    required
+                    onChange={(value) => {
+                      // Update the form data state when the employee selection changes
+                      handleInputChange("employeeId", value);
+                    }}
+                  />
+                </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -576,12 +578,14 @@ export default function EarningsPage() {
               Cancel
             </Button>
             <Button 
-              onClick={handleSaveEarning} 
+              type="submit" 
               disabled={createEarning.isPending}
             >
               {createEarning.isPending ? "Saving..." : "Save Earning"}
             </Button>
           </div>
+            </form>
+          </FormProvider>
         </DialogContent>
       </Dialog>
 
