@@ -8,14 +8,14 @@ import Layout from "@/components/layout/layout";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
-import Leave from "@/pages/leave";
+// Leave page removed
 import Deductions from "@/pages/deductions";
 import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
 // Reports import removed
 import Settings from "@/pages/settings";
 import ImportPage from "@/pages/import";
-import StaffPage from "@/pages/staff";
+// Staff page removed
 import Policies from "@/pages/policies";
 import EarningsPage from "@/pages/earnings";
 import ActivityLogPage from "@/pages/activity";
@@ -62,13 +62,7 @@ function Router() {
           </Layout>
         )} />
       </Route>
-      <Route path="/staff">
-        <ProtectedRoute component={() => (
-          <Layout>
-            <StaffPage />
-          </Layout>
-        )} />
-      </Route>
+      {/* Staff route removed */}
       <Route path="/employees">
         <ProtectedRoute component={() => (
           <Layout>
@@ -76,13 +70,7 @@ function Router() {
           </Layout>
         )} />
       </Route>
-      <Route path="/leave">
-        <ProtectedRoute component={() => (
-          <Layout>
-            <Leave />
-          </Layout>
-        )} />
-      </Route>
+      {/* Leave route removed */}
       <Route path="/deductions">
         <ProtectedRoute component={() => (
           <Layout>

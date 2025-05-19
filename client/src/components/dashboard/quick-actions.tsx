@@ -48,12 +48,6 @@ export function QuickActions() {
           />
           
           <QuickAction
-            icon={<Calendar className="h-6 w-6" />}
-            title="Record Leave"
-            onClick={() => navigate("/leave?action=new")}
-          />
-          
-          <QuickAction
             icon={<Clock className="h-6 w-6" />}
             title="Add Overtime"
             onClick={() => navigate("/overtime?action=new")}
