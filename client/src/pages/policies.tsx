@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Plus, Table } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
-import { PolicyList } from "@/components/policies/policy-list";
+import { SimplePolicyList } from "@/components/policies/simple-policy-list";
 import { PolicyExportForm } from "@/components/policies/policy-export-form";
 import PolicySpreadsheet from "@/components/policies/policy-spreadsheet";
 import { useAuth } from "@/lib/auth";
@@ -51,7 +51,7 @@ export default function PoliciesPage() {
         </TabsList>
         
         <TabsContent value="policies" className="mt-6">
-          <PolicyList />
+          <SimplePolicyList />
         </TabsContent>
         
         <TabsContent value="spreadsheet" className="mt-6">
