@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 import { EarningsTable } from "@/components/earnings/earnings-table";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { EnhancedEmployeeSearch } from "@/components/employees/enhanced-employee-search";
+import { useForm } from "react-hook-form";
 
 interface EarningFormData {
   employeeId: number | null;
@@ -70,6 +72,13 @@ export default function EarningsPage() {
     description: null,
     notes: null,
     approved: false
+  });
+  
+  // Initialize React Hook Form for the enhanced employee search
+  const form = useForm({
+    defaultValues: {
+      employeeId: formData.employeeId || undefined,
+    }
   });
 
   // Fetch employees
@@ -189,6 +198,12 @@ export default function EarningsPage() {
       notes: null,
       approved: false
     });
+    
+    // Reset the React Hook Form state
+    form.reset({
+      employeeId: undefined,
+    });
+    
     setDate(new Date());
     setIsEditMode(false);
     setEarningIdToEdit(null);
@@ -400,26 +415,18 @@ export default function EarningsPage() {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
+            {/* Enhanced Employee Search */}
             <div className="space-y-2">
-              <Label htmlFor="employee">Employee</Label>
-              <Select
-                onValueChange={(value) => handleInputChange("employeeId", parseInt(value))}
-                value={formData.employeeId?.toString() || ""}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Employee" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {Array.isArray(employees) ? employees.map((employee: any) => (
-                    <SelectItem key={employee.id} value={employee.id.toString()}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{employee.firstName} {employee.lastName} ({employee.employeeCode || 'No Code'})</span>
-                        <span className="text-xs text-muted-foreground">{employee.position} • {employee.department}</span>
-                      </div>
-                    </SelectItem>
-                  )) : null}
-                </SelectContent>
-              </Select>
+              {/* Use React Hook Form for the employee field */}
+              <EnhancedEmployeeSearch
+                control={form.control}
+                name="employeeId"
+                required
+                onChange={(value) => {
+                  // Update the form data state when the employee selection changes
+                  handleInputChange("employeeId", value);
+                }}
+              />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
