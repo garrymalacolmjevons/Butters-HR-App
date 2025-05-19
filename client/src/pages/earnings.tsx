@@ -409,10 +409,13 @@ export default function EarningsPage() {
                 <SelectTrigger>
                   <SelectValue placeholder="Select Employee" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[300px]">
                   {Array.isArray(employees) ? employees.map((employee: any) => (
                     <SelectItem key={employee.id} value={employee.id.toString()}>
-                      {employee.firstName} {employee.lastName} ({employee.employeeCode})
+                      <div className="flex flex-col">
+                        <span className="font-medium">{employee.firstName} {employee.lastName} ({employee.employeeCode || 'No Code'})</span>
+                        <span className="text-xs text-muted-foreground">{employee.position} • {employee.department}</span>
+                      </div>
                     </SelectItem>
                   )) : null}
                 </SelectContent>
