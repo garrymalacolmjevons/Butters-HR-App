@@ -435,6 +435,7 @@ export class DatabaseStorage implements IStorage {
   async getDashboardData(): Promise<{
     employeeCount: number;
     policyValueTotal: number;
+    policyCount: number;
     monthlyEarnings: number;
     totalDeductions: number;
   }> {
@@ -443,12 +444,29 @@ export class DatabaseStorage implements IStorage {
       count: count()
     }).from(employees);
     
-    // Get sum of all active policy values
-    const [policyValueResult] = await db.select({
-      total: sql<number>`sum(${insurancePolicies.amount})`
-    })
-    .from(insurancePolicies)
-    .where(eq(insurancePolicies.status, 'Active'));
+    // Get sum of all active policy values and count
+    let policyValueTotal = 0;
+    let policyCount = 0;
+    
+    try {
+      const [policyValueResult] = await db.select({
+        total: sql<number>`COALESCE(sum(${insurancePolicies.amount}), 0)`
+      })
+      .from(insurancePolicies)
+      .where(eq(insurancePolicies.status, 'Active'));
+      
+      policyValueTotal = policyValueResult?.total || 0;
+      
+      // Get count of policies
+      const [policyCountResult] = await db.select({
+        count: count()
+      })
+      .from(insurancePolicies);
+      
+      policyCount = policyCountResult?.count || 0;
+    } catch (error) {
+      console.error("Error calculating policy data:", error);
+    }
     
     // Get current month date range
     const today = new Date();
@@ -502,7 +520,8 @@ export class DatabaseStorage implements IStorage {
     
     return {
       employeeCount: Number(employeeResult?.count || 0),
-      policyValueTotal: Number(policyValueResult?.total || 0),
+      policyValueTotal: Number(policyValueTotal || 0),
+      policyCount: Number(policyCount || 0),
       monthlyEarnings: Number(totalEarnings || 0),
       totalDeductions: Number(totalDeductions || 0)
     };
