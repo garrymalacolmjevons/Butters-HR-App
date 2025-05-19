@@ -1586,29 +1586,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/leave", isAuthenticated, async (req, res, next) => {
     try {
+      console.log("LEAVE FORM SUBMISSION - Request body:", JSON.stringify(req.body, null, 2));
+      
       const userId = (req.user as any).id;
+      console.log("LEAVE FORM SUBMISSION - User ID:", userId);
       
-      // Create a leave record (which is a type of payroll record)
-      const data = insertPayrollRecordSchema.parse({
-        ...req.body,
-        recordType: "Leave",
-        createdBy: userId
-      });
-      
-      const record = await storage.createPayrollRecord(data);
-      
-      // Log activity
-      await storage.createActivityLog({
-        userId,
-        action: "Create Leave Record",
-        details: `Created leave record for employee ID ${record.employeeId}`
-      });
-      
-      res.status(201).json(record);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({ error: fromZodError(error).message });
+      // If no employeeId is provided, return an error immediately
+      if (!req.body.employeeId) {
+        console.error("LEAVE FORM SUBMISSION - Missing employeeId");
+        return res.status(400).json({ error: "Employee ID is required" });
       }
+      
+      try {
+        // Create a leave record (which is a type of payroll record)
+        const data = insertPayrollRecordSchema.parse({
+          ...req.body,
+          recordType: "Leave",
+          createdBy: userId
+        });
+        
+        console.log("LEAVE FORM SUBMISSION - Parsed data:", JSON.stringify(data, null, 2));
+        
+        const record = await storage.createPayrollRecord(data);
+        console.log("LEAVE FORM SUBMISSION - Record created:", JSON.stringify(record, null, 2));
+        
+        // Log activity
+        await storage.createActivityLog({
+          userId,
+          action: "Create Leave Record",
+          details: `Created leave record for employee ID ${record.employeeId}`
+        });
+        
+        console.log("LEAVE FORM SUBMISSION - Success response sent");
+        res.status(201).json(record);
+      } catch (validationError) {
+        console.error("LEAVE FORM SUBMISSION - Validation error:", validationError);
+        
+        if (validationError instanceof ZodError) {
+          // Get detailed validation errors
+          const formattedError = fromZodError(validationError);
+          console.error("LEAVE FORM SUBMISSION - Formatted error:", formattedError);
+          return res.status(400).json({ 
+            error: "Validation failed", 
+            details: formattedError.message,
+            fields: formattedError.details
+          });
+        }
+        
+        throw validationError; // Re-throw if not a ZodError
+      }
+    } catch (error) {
+      console.error("LEAVE FORM SUBMISSION - Unexpected error:", error);
       next(error);
     }
   });

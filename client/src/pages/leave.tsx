@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { LeaveTable } from "@/components/leave/leave-table";
 import { SimpleLeaveForm } from "@/components/leave/simple-leave-form";
 import { EmergencyLeaveForm } from "@/components/leave/emergency-leave-form";
+import { DirectLeaveForm } from "@/components/leave/direct-leave-form";
 import { LeaveSummary } from "@/components/leave/leave-summary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -230,7 +231,7 @@ export default function Leave() {
               <Plus className="h-4 w-4" />
               <span>Add Leave Record</span>
             </Button>
-            <EmergencyLeaveForm />
+            <DirectLeaveForm />
           </div>
         }
       />
