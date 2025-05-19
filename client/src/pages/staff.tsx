@@ -88,7 +88,7 @@ export default function StaffPage() {
   // Create leave record mutation
   const createLeaveMutation = useMutation({
     mutationFn: (data: any) => 
-      apiRequest("/api/payroll-records", "POST", {
+      apiRequest("POST", "/api/payroll-records", {
         ...data,
         recordType: "Leave",
         createdBy: user?.id
@@ -103,7 +103,7 @@ export default function StaffPage() {
       
       // Log activity
       if (user?.id) {
-        apiRequest("/api/activity-logs", "POST", {
+        apiRequest("POST", "/api/activity-logs", {
           userId: user.id,
           action: "Created leave record",
           details: `Created a new leave record`
@@ -122,7 +122,7 @@ export default function StaffPage() {
   // Create termination record mutation
   const createTerminationMutation = useMutation({
     mutationFn: (data: any) => 
-      apiRequest("/api/payroll-records", "POST", {
+      apiRequest("POST", "/api/payroll-records", {
         ...data,
         recordType: "Termination",
         createdBy: user?.id
@@ -138,7 +138,7 @@ export default function StaffPage() {
       
       // Log activity
       if (user?.id) {
-        apiRequest("/api/activity-logs", "POST", {
+        apiRequest("POST", "/api/activity-logs", {
           userId: user.id,
           action: "Created termination record",
           details: `Recorded an employee termination`
@@ -160,7 +160,7 @@ export default function StaffPage() {
       // If approved is true, we'll send an email to Sherry and log for Tracey
       const sendNotification = data.approved;
       
-      return apiRequest("/api/payroll-records", "POST", {
+      return apiRequest("POST", "/api/payroll-records", {
         ...data,
         recordType: "Bank Account Change",
         createdBy: user?.id,
@@ -181,7 +181,7 @@ export default function StaffPage() {
       
       // Log activity
       if (user?.id) {
-        apiRequest("/api/activity-logs", "POST", {
+        apiRequest("POST", "/api/activity-logs", {
           userId: user.id,
           action: "Recorded bank account change",
           details: `Recorded a bank account change for an employee`
