@@ -34,6 +34,8 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable } from "@/components/ui/data-table";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
+import { EnhancedEmployeeSearch } from "@/components/employees/enhanced-employee-search";
+import { useForm, FormProvider } from "react-hook-form";
 
 interface DeductionFormData {
   employeeId: number | null;
