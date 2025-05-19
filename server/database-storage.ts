@@ -2,14 +2,13 @@ import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count, inArray } from
 import { db } from "./db";
 import {
   users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
-  insurancePolicies, policyPayments, policyExports, maternityRecords, archivedPayrollRecords, staffGarnishees, garnisheePayments,
+  insurancePolicies, policyPayments, policyExports, maternityRecords,
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
   ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
   InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment, PolicyExport, InsertPolicyExport,
-  MaternityRecord, InsertMaternityRecord, ArchivedPayrollRecord, InsertArchivedPayrollRecord,
-  StaffGarnishee, InsertStaffGarnishee, GarnisheePayment, InsertGarnisheePayment
+  MaternityRecord, InsertMaternityRecord
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -457,55 +456,38 @@ export class DatabaseStorage implements IStorage {
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     
     // Get sum of all earnings for the current month
-    // Using the actual enum values from recordTypeEnum, ensuring they match exactly
-    const earningTypes = ['Overtime', 'Special Shift', 'Standby Shift', 'Camera Allowance'];
-    
-    let totalEarnings = 0;
-    try {
-      const [earningsResult] = await db.select({
-        total: sql<number>`sum(${payrollRecords.amount})`
-      })
-      .from(payrollRecords)
-      .where(
-        and(
-          inArray(payrollRecords.recordType, earningTypes as any[]),
-          gte(payrollRecords.date, startOfMonth),
-          lte(payrollRecords.date, endOfMonth)
-        )
-      );
-      totalEarnings = earningsResult?.total || 0;
-    } catch (error) {
-      console.error("Error calculating earnings:", error);
-      // Continue execution even if this part fails
-    }
+    const earningTypes = ['Overtime', 'Commission', 'Special Shift', 'Escort Allowance', 'Standby Shift'];
+    const [earningsResult] = await db.select({
+      total: sql<number>`sum(${payrollRecords.amount})`
+    })
+    .from(payrollRecords)
+    .where(
+      and(
+        inArray(payrollRecords.recordType, earningTypes),
+        gte(payrollRecords.date, startOfMonth),
+        lte(payrollRecords.date, endOfMonth)
+      )
+    );
     
     // Get sum of all deductions for the current month
     const deductionTypes = ['Deduction', 'Loan', 'Advance'];
-    
-    let totalDeductions = 0;
-    try {
-      const [deductionsResult] = await db.select({
-        total: sql<number>`sum(${payrollRecords.amount})`
-      })
-      .from(payrollRecords)
-      .where(
-        and(
-          inArray(payrollRecords.recordType, deductionTypes),
-          gte(payrollRecords.date, startOfMonth),
-          lte(payrollRecords.date, endOfMonth)
-        )
-      );
-      totalDeductions = deductionsResult?.total || 0;
-    } catch (error) {
-      console.error("Error calculating deductions:", error);
-      // Continue execution even if this part fails
-    }
+    const [deductionsResult] = await db.select({
+      total: sql<number>`sum(${payrollRecords.amount})`
+    })
+    .from(payrollRecords)
+    .where(
+      and(
+        inArray(payrollRecords.recordType, deductionTypes),
+        gte(payrollRecords.date, startOfMonth),
+        lte(payrollRecords.date, endOfMonth)
+      )
+    );
     
     return {
       employeeCount: Number(employeeResult?.count || 0),
       policyValueTotal: Number(policyValueResult?.total || 0),
-      monthlyEarnings: Number(totalEarnings || 0),
-      totalDeductions: Number(totalDeductions || 0)
+      monthlyEarnings: Number(earningsResult?.total || 0),
+      totalDeductions: Number(deductionsResult?.total || 0)
     };
   }
 
@@ -1021,235 +1003,5 @@ export class DatabaseStorage implements IStorage {
       .where(eq(maternityRecords.id, id));
     
     return result.rowCount > 0;
-  }
-
-  // Staff Garnishee methods
-  async getStaffGarnishees(filter?: { 
-    employeeId?: number,
-    status?: string
-  }): Promise<(StaffGarnishee & { employeeName: string, employeeCode: string | null })[]> {
-    try {
-      let query = db
-        .select({
-          id: staffGarnishees.id,
-          employeeId: staffGarnishees.employeeId,
-          caseNumber: staffGarnishees.caseNumber,
-          creditor: staffGarnishees.creditor,
-          monthlyAmount: staffGarnishees.monthlyAmount,
-          totalAmount: staffGarnishees.totalAmount,
-          balance: staffGarnishees.balance,
-          startDate: staffGarnishees.startDate,
-          endDate: staffGarnishees.endDate,
-          status: staffGarnishees.status,
-          comments: staffGarnishees.comments,
-          createdAt: staffGarnishees.createdAt,
-          updatedAt: staffGarnishees.updatedAt,
-          employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
-          employeeCode: employees.employeeCode
-        })
-        .from(staffGarnishees)
-        .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id));
-      
-      if (filter?.employeeId) {
-        query = query.where(eq(staffGarnishees.employeeId, filter.employeeId));
-      }
-      
-      if (filter?.status) {
-        query = query.where(eq(staffGarnishees.status, filter.status as any));
-      }
-      
-      const garnishees = await query.orderBy(desc(staffGarnishees.createdAt));
-      return garnishees;
-    } catch (error) {
-      console.error("Error in getStaffGarnishees:", error);
-      return [];
-    }
-  }
-  
-  async getStaffGarnishee(id: number): Promise<(StaffGarnishee & { employeeName: string, employeeCode: string | null }) | undefined> {
-    try {
-      const [garnishee] = await db
-        .select({
-          id: staffGarnishees.id,
-          employeeId: staffGarnishees.employeeId,
-          caseNumber: staffGarnishees.caseNumber,
-          creditor: staffGarnishees.creditor,
-          monthlyAmount: staffGarnishees.monthlyAmount,
-          totalAmount: staffGarnishees.totalAmount,
-          balance: staffGarnishees.balance,
-          startDate: staffGarnishees.startDate,
-          endDate: staffGarnishees.endDate,
-          status: staffGarnishees.status,
-          comments: staffGarnishees.comments,
-          createdAt: staffGarnishees.createdAt,
-          updatedAt: staffGarnishees.updatedAt,
-          employeeName: sql`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
-          employeeCode: employees.employeeCode
-        })
-        .from(staffGarnishees)
-        .leftJoin(employees, eq(staffGarnishees.employeeId, employees.id))
-        .where(eq(staffGarnishees.id, id));
-      
-      return garnishee;
-    } catch (error) {
-      console.error("Error in getStaffGarnishee:", error);
-      return undefined;
-    }
-  }
-  
-  async createStaffGarnishee(garnishee: InsertStaffGarnishee): Promise<StaffGarnishee> {
-    const [result] = await db
-      .insert(staffGarnishees)
-      .values(garnishee)
-      .returning();
-    
-    return result;
-  }
-  
-  async updateStaffGarnishee(id: number, garnishee: Partial<InsertStaffGarnishee>): Promise<StaffGarnishee | undefined> {
-    const [result] = await db
-      .update(staffGarnishees)
-      .set({
-        ...garnishee,
-        updatedAt: new Date()
-      })
-      .where(eq(staffGarnishees.id, id))
-      .returning();
-    
-    return result;
-  }
-  
-  async deleteStaffGarnishee(id: number): Promise<boolean> {
-    const result = await db
-      .delete(staffGarnishees)
-      .where(eq(staffGarnishees.id, id));
-    
-    return result.rowCount > 0;
-  }
-  
-  async getGarnisheePayments(garnisheeId: number): Promise<GarnisheePayment[]> {
-    const payments = await db
-      .select()
-      .from(garnisheePayments)
-      .where(eq(garnisheePayments.garnisheeId, garnisheeId))
-      .orderBy(desc(garnisheePayments.paymentDate));
-    
-    return payments;
-  }
-  
-  async createGarnisheePayment(payment: InsertGarnisheePayment): Promise<GarnisheePayment> {
-    const [result] = await db
-      .insert(garnisheePayments)
-      .values(payment)
-      .returning();
-    
-    return result;
-  }
-  
-  async updateGarnisheePayment(id: number, payment: Partial<InsertGarnisheePayment>): Promise<GarnisheePayment | undefined> {
-    const [result] = await db
-      .update(garnisheePayments)
-      .set({
-        ...payment,
-        updatedAt: new Date()
-      })
-      .where(eq(garnisheePayments.id, id))
-      .returning();
-    
-    return result;
-  }
-  
-  async deleteGarnisheePayment(id: number): Promise<boolean> {
-    const result = await db
-      .delete(garnisheePayments)
-      .where(eq(garnisheePayments.id, id));
-    
-    return result.rowCount > 0;
-  }
-  
-  // Archive functionality
-  async archivePayrollRecords(userId: number, recordTypes: string[]): Promise<{ 
-    archivedCount: number; 
-    recordTypes: string[]; 
-  }> {
-    // Start a transaction to ensure data consistency
-    return await db.transaction(async (tx) => {
-      // Get records to archive (only earnings and deductions)
-      const recordsToArchive = await tx.select()
-        .from(payrollRecords)
-        .where(inArray(payrollRecords.recordType, recordTypes));
-      
-      if (recordsToArchive.length === 0) {
-        return { archivedCount: 0, recordTypes };
-      }
-      
-      // Prepare records for archive table
-      const archivedRecords = recordsToArchive.map(record => ({
-        originalId: record.id,
-        employeeId: record.employeeId,
-        recordType: record.recordType,
-        amount: record.amount,
-        details: record.details,
-        notes: record.notes,
-        date: record.date,
-        status: "Archived",
-        documentImage: record.documentImage,
-        startDate: record.startDate,
-        endDate: record.endDate,
-        totalDays: record.totalDays,
-        approved: record.approved,
-        createdAt: record.createdAt,
-        archivedBy: userId,
-      }));
-      
-      // Insert records into archive table
-      await tx.insert(archivedPayrollRecords).values(archivedRecords);
-      
-      // Delete records from the original table
-      const deletedRecords = await tx.delete(payrollRecords)
-        .where(inArray(payrollRecords.recordType, recordTypes))
-        .returning({ id: payrollRecords.id });
-      
-      return { 
-        archivedCount: deletedRecords.length,
-        recordTypes
-      };
-    });
-  }
-  
-  async getGarnisheeDashboardData(): Promise<{
-    activeGarnishees: number;
-    totalOutstanding: number;
-    monthlyPayments: number;
-  }> {
-    try {
-      const [activeCount] = await db
-        .select({ count: count() })
-        .from(staffGarnishees)
-        .where(eq(staffGarnishees.status, 'Active'));
-      
-      const [totalOutstanding] = await db
-        .select({ sum: sql<number>`SUM(${staffGarnishees.balance})` })
-        .from(staffGarnishees)
-        .where(eq(staffGarnishees.status, 'Active'));
-      
-      const [monthlyTotal] = await db
-        .select({ sum: sql<number>`SUM(${staffGarnishees.monthlyAmount})` })
-        .from(staffGarnishees)
-        .where(eq(staffGarnishees.status, 'Active'));
-      
-      return {
-        activeGarnishees: activeCount?.count || 0,
-        totalOutstanding: totalOutstanding?.sum || 0,
-        monthlyPayments: monthlyTotal?.sum || 0
-      };
-    } catch (error) {
-      console.error("Error in getGarnisheeDashboardData:", error);
-      return {
-        activeGarnishees: 0,
-        totalOutstanding: 0,
-        monthlyPayments: 0
-      };
-    }
   }
 }

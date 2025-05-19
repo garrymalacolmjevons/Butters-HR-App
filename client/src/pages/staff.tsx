@@ -87,21 +87,12 @@ export default function StaffPage() {
   
   // Create leave record mutation
   const createLeaveMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log("Creating leave record with data:", data);
-      try {
-        const response = await apiRequest("POST", "/api/payroll-records", {
-          ...data,
-          recordType: "Leave",
-          createdBy: user?.id
-        });
-        console.log("Leave record created successfully:", response);
-        return response;
-      } catch (error) {
-        console.error("Error creating leave record:", error);
-        throw error;
-      }
-    },
+    mutationFn: (data: any) => 
+      apiRequest("/api/payroll-records", "POST", {
+        ...data,
+        recordType: "Leave",
+        createdBy: user?.id
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff-records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -112,7 +103,7 @@ export default function StaffPage() {
       
       // Log activity
       if (user?.id) {
-        apiRequest("POST", "/api/activity-logs", {
+        apiRequest("/api/activity-logs", "POST", {
           userId: user.id,
           action: "Created leave record",
           details: `Created a new leave record`
@@ -130,21 +121,12 @@ export default function StaffPage() {
   
   // Create termination record mutation
   const createTerminationMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log("Creating termination record with data:", data);
-      try {
-        const response = await apiRequest("POST", "/api/payroll-records", {
-          ...data,
-          recordType: "Termination",
-          createdBy: user?.id
-        });
-        console.log("Termination record created successfully:", response);
-        return response;
-      } catch (error) {
-        console.error("Error creating termination record:", error);
-        throw error;
-      }
-    },
+    mutationFn: (data: any) => 
+      apiRequest("/api/payroll-records", "POST", {
+        ...data,
+        recordType: "Termination",
+        createdBy: user?.id
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff-records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
@@ -156,7 +138,7 @@ export default function StaffPage() {
       
       // Log activity
       if (user?.id) {
-        apiRequest("POST", "/api/activity-logs", {
+        apiRequest("/api/activity-logs", "POST", {
           userId: user.id,
           action: "Created termination record",
           details: `Recorded an employee termination`
@@ -174,24 +156,16 @@ export default function StaffPage() {
   
   // Create bank account change mutation
   const createBankAccountChangeMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log("Creating bank account change record with data:", data);
+    mutationFn: (data: any) => {
       // If approved is true, we'll send an email to Sherry and log for Tracey
       const sendNotification = data.approved;
       
-      try {
-        const response = await apiRequest("POST", "/api/payroll-records", {
-          ...data,
-          recordType: "Bank Account Change",
-          createdBy: user?.id,
-          sendNotification
-        });
-        console.log("Bank account change record created successfully:", response);
-        return response;
-      } catch (error) {
-        console.error("Error creating bank account change record:", error);
-        throw error;
-      }
+      return apiRequest("/api/payroll-records", "POST", {
+        ...data,
+        recordType: "Bank Account Change",
+        createdBy: user?.id,
+        sendNotification
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff-records"] });
@@ -207,7 +181,7 @@ export default function StaffPage() {
       
       // Log activity
       if (user?.id) {
-        apiRequest("POST", "/api/activity-logs", {
+        apiRequest("/api/activity-logs", "POST", {
           userId: user.id,
           action: "Recorded bank account change",
           details: `Recorded a bank account change for an employee`
@@ -431,11 +405,7 @@ export default function StaffPage() {
       <LeaveForm
         isOpen={leaveFormOpen}
         onClose={() => setLeaveFormOpen(false)}
-        onSubmit={(data) => {
-          console.log("Leave form submitted with data:", data);
-          createLeaveMutation.mutate(data);
-          console.log("createLeaveMutation called");
-        }}
+        onSubmit={createLeaveMutation.mutate}
         isSubmitting={createLeaveMutation.isPending}
         title="Record Employee Leave"
       />

@@ -12,9 +12,7 @@ import { Plus, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { LeaveTable } from "@/components/leave/leave-table";
-import { SimpleLeaveForm } from "@/components/leave/simple-leave-form";
-import { EmergencyLeaveForm } from "@/components/leave/emergency-leave-form";
-import { DirectLeaveForm } from "@/components/leave/direct-leave-form";
+import { LeaveForm } from "@/components/leave/leave-form";
 import { LeaveSummary } from "@/components/leave/leave-summary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -102,10 +100,7 @@ export default function Leave() {
   // Create leave mutation
   const createLeaveMutation = useMutation({
     mutationFn: (data: InsertPayrollRecord) => 
-      apiRequest("/api/leave", {
-        method: "POST", 
-        body: JSON.stringify(data)
-      }),
+      apiRequest("/api/leave", "POST", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -127,10 +122,7 @@ export default function Leave() {
   // Update leave mutation
   const updateLeaveMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<InsertPayrollRecord> }) => 
-      apiRequest(`/api/leave/${id}`, {
-        method: "PATCH", 
-        body: JSON.stringify(data)
-      }),
+      apiRequest(`/api/leave/${id}`, "PATCH", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -152,9 +144,7 @@ export default function Leave() {
   // Delete leave mutation
   const deleteLeaveMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/leave/${id}`, {
-        method: "DELETE"
-      });
+      await apiRequest("DELETE", `/api/leave/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
@@ -226,13 +216,10 @@ export default function Leave() {
       <PageHeader
         title="Leave Management"
         actions={
-          <div className="flex gap-2">
-            <Button onClick={handleCreateLeave} className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Leave Record</span>
-            </Button>
-            <DirectLeaveForm />
-          </div>
+          <Button onClick={handleCreateLeave} className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span>Add Leave Record</span>
+          </Button>
         }
       />
       
@@ -325,12 +312,20 @@ export default function Leave() {
         isLoading={isLoadingLeaves}
       />
       
-      {/* Simple Leave Form Dialog */}
-      <SimpleLeaveForm
+      {/* Leave Form Dialog */}
+      <LeaveForm
         isOpen={isLeaveFormOpen}
         onClose={() => setIsLeaveFormOpen(false)}
         onSubmit={handleFormSubmit}
+        defaultValues={selectedLeave ? {
+          ...selectedLeave,
+          // Set values directly as strings since they're already in string format from the API
+          date: selectedLeave.date || '',
+          startDate: selectedLeave.startDate || '',
+          endDate: selectedLeave.endDate || '',
+        } : undefined}
         isSubmitting={createLeaveMutation.isPending || updateLeaveMutation.isPending}
+        title={formMode === "create" ? "Add Leave Record" : "Edit Leave Record"}
       />
     </div>
   );

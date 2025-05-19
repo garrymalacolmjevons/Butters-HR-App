@@ -4,15 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Camera, RefreshCw } from "lucide-react";
 
 interface WebcamCaptureProps {
-  onCapture: (imageSrc: string | null) => void;
+  onCapture: (imageSrc: string) => void;
   width?: number;
   height?: number;
-  initialImage?: string | null;
 }
 
-const WebcamCapture = ({ onCapture, width = 600, height = 400, initialImage = null }: WebcamCaptureProps) => {
+const WebcamCapture = ({ onCapture, width = 600, height = 400 }: WebcamCaptureProps) => {
   const webcamRef = useRef<Webcam>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(initialImage);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraAvailable, setIsCameraAvailable] = useState(true);
 
   useEffect(() => {

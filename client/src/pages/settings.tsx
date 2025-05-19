@@ -7,7 +7,6 @@ import { useAuth } from "@/lib/auth";
 import OvertimeRatesSettings from '@/components/settings/overtime-rates-settings';
 import EmailSettings from '@/components/settings/email-settings';
 import UserManagement from '@/components/settings/user-management';
-import ArchiveRecordsSettings from '../components/settings/archive-records-settings';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -36,11 +35,10 @@ export default function SettingsPage() {
       </div>
       
       <Tabs defaultValue="overtime" className="space-y-6" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 md:w-3/4">
+        <TabsList className="grid w-full grid-cols-3 md:w-3/4">
           <TabsTrigger value="overtime">Overtime Rates</TabsTrigger>
           <TabsTrigger value="email">Email Settings</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="archive">Archive</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overtime" className="space-y-6">
@@ -81,20 +79,6 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <UserManagement />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="archive" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Archive Records</CardTitle>
-              <CardDescription>
-                Archive earnings and deductions records to optimize system performance.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ArchiveRecordsSettings />
             </CardContent>
           </Card>
         </TabsContent>

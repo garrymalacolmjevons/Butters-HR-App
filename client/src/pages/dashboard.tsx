@@ -18,7 +18,7 @@ export default function Dashboard() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <img src="/logo.jpg" alt="Butters Security Logo" className="h-10 w-auto" />
+          <img src="/logo.jpg" alt="Hi-Tec Security Logo" className="h-10 w-auto" />
           <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         </div>
         <RefreshButton 
@@ -35,10 +35,10 @@ export default function Dashboard() {
           icon={<Users className="text-amber-500" />}
           breakdown={
             isLoadingDashboard
-              ? { primary: "-", secondary: "-" }
+              ? { hitec: "-", staff: "-" }
               : {
-                  primary: "Butters Security",
-                  secondary: "Staff",
+                  hitec: "Hi-Tec Security",
+                  staff: "Staff",
                 }
           }
         />
