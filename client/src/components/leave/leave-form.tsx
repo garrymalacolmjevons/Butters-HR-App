@@ -212,6 +212,8 @@ export function LeaveForm({
       documentImage: capturedImage || undefined,
       // Make sure we're working with Date objects
       date: new Date(), // Automatically set to today
+      // Since we removed the toggle, provide a default approved value
+      approved: false
     };
     
     // Log detailed information about each field for debugging
@@ -506,27 +508,7 @@ export function LeaveForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="approved"
-                render={({ field }) => (
-                  <FormItem className="col-span-2 flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Was this leave approved?</FormLabel>
-                      <FormDescription>
-                        Toggle to confirm whether this leave was approved by management
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value || false}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Approval toggle removed to test if it was causing submission issues */}
               
               {/* Current Date Field */}
               {/* Hidden date field - automatically set to current date */}
