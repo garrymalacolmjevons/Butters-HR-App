@@ -363,6 +363,7 @@ export function LeaveForm({
                         min="0.5"
                         step="0.5"
                         {...field}
+                        value={field.value?.toString() || ""}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
                       />
                     </FormControl>
@@ -381,7 +382,11 @@ export function LeaveForm({
                   <FormItem className="col-span-2">
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Enter any additional information about this leave" {...field} />
+                      <Textarea 
+                        placeholder="Enter any additional information about this leave" 
+                        {...field} 
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -491,7 +496,7 @@ export function LeaveForm({
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value || false}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
