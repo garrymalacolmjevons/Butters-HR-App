@@ -254,7 +254,7 @@ const PolicySpreadsheet = () => {
   // Handle click on a cell to make it editable
   const handleCellClick = (rowIndex: number, columnId: string, value: any) => {
     // Only certain columns can be edited
-    const editableColumns = ['policyNumber', 'amount', 'status'];
+    const editableColumns = ['policyNumber', 'amount', 'status', 'company'];
     if (!editableColumns.includes(columnId)) return;
 
     setEditableCell({ rowIndex, columnId, initialValue: value });
@@ -497,7 +497,38 @@ const PolicySpreadsheet = () => {
                     <td className="p-2">{policy.id}</td>
                     <td className="p-2">{policy.employeeName} {policy.employeeCode ? `(${policy.employeeCode})` : ''}</td>
                     <td className="p-2">{policy.employeeCode}</td>
-                    <td className="p-2">{policy.company}</td>
+                    {/* Editable Company Cell */}
+                    <td 
+                      className="p-2 cursor-pointer hover:bg-muted"
+                      onClick={() => handleCellClick(rowIndex, 'company', policy.company)}
+                    >
+                      {editableCell?.rowIndex === rowIndex && editableCell?.columnId === 'company' ? (
+                        <Select
+                          value={editValue}
+                          onValueChange={(value) => {
+                            setEditValue(value);
+                            // Immediately update when a dropdown selection is made
+                            updatePolicyMutation.mutate({
+                              id: policy.id,
+                              data: { company: value }
+                            });
+                            setEditableCell(null);
+                          }}
+                          autoFocus
+                        >
+                          <SelectTrigger className="h-6 p-1 border-0 focus:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {INSURANCE_COMPANIES.map(company => (
+                              <SelectItem key={company} value={company}>{company}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        policy.company
+                      )}
+                    </td>
                     
                     {/* Editable Policy Number Cell */}
                     <td 

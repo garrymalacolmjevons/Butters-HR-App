@@ -9,7 +9,8 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
 import LeavePage from "@/pages/leave";
-// Deductions import removed
+import DeductionsPage from "@/pages/deductions";
+import TerminationsPage from "@/pages/terminations";
 import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
 // Reports import removed
@@ -140,6 +141,24 @@ function Router() {
         <ProtectedRoute component={() => (
           <Layout>
             <LeavePage />
+          </Layout>
+        )} />
+      </Route>
+      
+      {/* Terminations Page */}
+      <Route path="/terminations">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <TerminationsPage />
+          </Layout>
+        )} />
+      </Route>
+      
+      {/* Deductions Page */}
+      <Route path="/deductions">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <DeductionsPage />
           </Layout>
         )} />
       </Route>

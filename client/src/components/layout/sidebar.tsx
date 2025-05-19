@@ -22,6 +22,8 @@ import {
   FileText,
   CreditCard,
   UserCheck,
+  UserMinus,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -146,7 +148,16 @@ export default function Sidebar() {
           path="/leave" 
           label="Leave" 
         />
-        {/* Deductions removed as requested */}
+        <NavItem 
+          icon={UserMinus} 
+          path="/terminations" 
+          label="Terminations" 
+        />
+        <NavItem 
+          icon={Wallet} 
+          path="/deductions" 
+          label="Deductions" 
+        />
         <NavItem 
           icon={Shield} 
           path="/policies" 
