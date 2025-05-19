@@ -248,6 +248,11 @@ export default function EarningsPage() {
       approved: earning.approved || false
     });
     
+    // Update React Hook Form values for the enhanced employee search
+    form.reset({
+      employeeId: earning.employeeId,
+    });
+    
     // Set date for calendar
     if (earning.date) {
       setDate(new Date(earning.date));
