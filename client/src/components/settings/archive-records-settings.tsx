@@ -37,10 +37,19 @@ export default function ArchiveRecordsSettings() {
 
   const archiveMutation = useMutation({
     mutationFn: async (recordTypes: string[]) => {
-      return await apiRequest('/api/archive-records', {
+      const response = await fetch('/api/archive-records', {
         method: 'POST',
-        body: { recordTypes }
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recordTypes })
       });
+      
+      if (!response.ok) {
+        throw new Error(`Archive failed: ${response.statusText}`);
+      }
+      
+      return await response.json();
     },
     onSuccess: (data) => {
       toast({
@@ -63,6 +72,14 @@ export default function ArchiveRecordsSettings() {
       setSelectedTypes(prev => [...prev, value]);
     } else {
       setSelectedTypes(prev => prev.filter(type => type !== value));
+    }
+  };
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTypes(recordTypes.map(type => type.value));
+    } else {
+      setSelectedTypes([]);
     }
   };
 
@@ -91,6 +108,15 @@ export default function ArchiveRecordsSettings() {
           Select the record types that you want to archive. This will move all records of those types to the archive table,
           making the system faster and more responsive. This action cannot be undone.
         </p>
+        
+        <div className="flex items-center space-x-2 mt-4 mb-2 border-b pb-2">
+          <Checkbox 
+            id="select-all" 
+            checked={selectedTypes.length === recordTypes.length}
+            onCheckedChange={(checked) => handleSelectAll(checked === true)}
+          />
+          <Label htmlFor="select-all" className="font-semibold cursor-pointer">Select All</Label>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           {recordTypes.map((type) => (
