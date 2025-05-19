@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmployeeWithFullName } from "@shared/schema";
+import { EnhancedEmployeeSearch } from "@/components/employees/enhanced-employee-search";
 
 // Extend the insert schema with validation
 const allowanceFormSchema = insertPayrollRecordSchema.extend({

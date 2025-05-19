@@ -116,39 +116,13 @@ export function OvertimeForm({
                 )}
               />
 
-              <FormField
+              <EnhancedEmployeeSearch
                 control={form.control}
                 name="employeeId"
-                render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Employee</FormLabel>
-                    <Select
-                      disabled={isLoadingEmployees}
-                      onValueChange={(value) => {
-                        field.onChange(parseInt(value));
-                      }}
-                      value={field.value?.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Employee" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingEmployees ? (
-                          <SelectItem value="loading" disabled>Loading...</SelectItem>
-                        ) : (
-                          employees.map((employee) => (
-                            <SelectItem key={employee.id} value={employee.id.toString()}>
-                              {employee.fullName || `${employee.firstName} ${employee.lastName}`} ({employee.employeeCode})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Employee"
+                required
+                statusFilter="Active"
+                placeholder="Search for an employee..."
               />
 
               <FormField
