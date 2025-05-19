@@ -203,24 +203,16 @@ export function LeaveForm({
   };
 
   const handleSubmit = (values: LeaveFormValues) => {
-    // Ensure the document image URL is included
-    const valuesWithImage = {
+    // Always use current date value for record date
+    const submissionValues: LeaveFormValues = {
       ...values,
-      documentImage: capturedImage,
-      // Ensure date fields are properly formatted as strings
-      startDate: values.startDate ? 
-        (typeof values.startDate === 'string' ? values.startDate : values.startDate.toISOString().split('T')[0]) 
-        : undefined,
-      endDate: values.endDate ? 
-        (typeof values.endDate === 'string' ? values.endDate : values.endDate.toISOString().split('T')[0]) 
-        : undefined,
-      date: values.date ? 
-        (typeof values.date === 'string' ? values.date : values.date.toISOString().split('T')[0]) 
-        : undefined,
+      documentImage: capturedImage || undefined,
+      // Make sure we're working with Date objects
+      date: new Date(), // Automatically set to today
     };
     
-    console.log("Submitting leave form with values:", valuesWithImage);
-    onSubmit(valuesWithImage);
+    console.log("Submitting leave form with values:", submissionValues);
+    onSubmit(submissionValues);
   };
 
   return (
@@ -509,25 +501,19 @@ export function LeaveForm({
               />
               
               {/* Current Date Field */}
+              {/* Hidden date field - automatically set to current date */}
               <FormField
                 control={form.control}
                 name="date"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Record Date</FormLabel>
+                  <FormItem className="hidden">
                     <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        value={selectedRecordDate || ""}
-                        onChange={(e) => {
-                          // Use the input's raw value string for display
-                          field.onChange(e.target.value);
-                          setSelectedRecordDate(e.target.value);
-                        }}
+                      <Input 
+                        type="hidden" 
+                        {...field} 
+                        value={selectedRecordDate}
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
