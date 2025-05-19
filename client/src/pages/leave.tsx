@@ -12,7 +12,7 @@ import { Plus, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { LeaveTable } from "@/components/leave/leave-table";
-import { LeaveForm } from "@/components/leave/leave-form";
+import { SimpleLeaveForm } from "@/components/leave/simple-leave-form";
 import { LeaveSummary } from "@/components/leave/leave-summary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -320,20 +320,12 @@ export default function Leave() {
         isLoading={isLoadingLeaves}
       />
       
-      {/* Leave Form Dialog */}
-      <LeaveForm
+      {/* Simple Leave Form Dialog */}
+      <SimpleLeaveForm
         isOpen={isLeaveFormOpen}
         onClose={() => setIsLeaveFormOpen(false)}
         onSubmit={handleFormSubmit}
-        defaultValues={selectedLeave ? {
-          ...selectedLeave,
-          // Set values directly as strings since they're already in string format from the API
-          date: selectedLeave.date || '',
-          startDate: selectedLeave.startDate || '',
-          endDate: selectedLeave.endDate || '',
-        } : undefined}
         isSubmitting={createLeaveMutation.isPending || updateLeaveMutation.isPending}
-        title={formMode === "create" ? "Add Leave Record" : "Edit Leave Record"}
       />
     </div>
   );
