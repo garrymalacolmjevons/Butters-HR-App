@@ -221,19 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ error: "Not authenticated" });
   });
 
-  // Staff Records route - combines Leave, Termination, and Bank Account Change records
-  app.get("/api/staff-records", isAuthenticated, async (req, res, next) => {
-    try {
-      const { recordType } = req.query;
-      const records = await storage.getPayrollRecords({
-        recordType: recordType ? recordType as string : undefined,
-        types: ["Leave", "Termination", "Bank Account Change"]
-      });
-      res.json(records);
-    } catch (error) {
-      next(error);
-    }
-  });
+  // Staff Records route removed
   
   // Employee routes
   app.get("/api/employees", isAuthenticated, async (req, res, next) => {
@@ -1557,112 +1545,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Leave routes
-  app.get("/api/leave", isAuthenticated, async (req, res, next) => {
-    try {
-      const filter = {
-        recordType: "Leave"
-      };
-      
-      // Add optional filters
-      if (req.query.startDate) {
-        filter["startDate"] = new Date(req.query.startDate as string);
-      }
-      if (req.query.endDate) {
-        filter["endDate"] = new Date(req.query.endDate as string);
-      }
-      if (req.query.status) {
-        filter["status"] = req.query.status as string;
-      }
-      if (req.query.employeeId) {
-        filter["employeeId"] = parseInt(req.query.employeeId as string);
-      }
-      
-      const records = await storage.getPayrollRecords(filter);
-      res.json(records);
-    } catch (error) {
-      next(error);
-    }
-  });
+  // GET /api/leave endpoint removed
   
-  app.post("/api/leave", isAuthenticated, async (req, res, next) => {
-    try {
-      console.log("LEAVE FORM SUBMISSION - Request body:", JSON.stringify(req.body, null, 2));
-      
-      const userId = (req.user as any).id;
-      console.log("LEAVE FORM SUBMISSION - User ID:", userId);
-      
-      // If no employeeId is provided, return an error immediately
-      if (!req.body.employeeId) {
-        console.error("LEAVE FORM SUBMISSION - Missing employeeId");
-        return res.status(400).json({ error: "Employee ID is required" });
-      }
-      
-      try {
-        // Create a leave record (which is a type of payroll record)
-        const data = insertPayrollRecordSchema.parse({
-          ...req.body,
-          recordType: "Leave",
-          createdBy: userId
-        });
-        
-        console.log("LEAVE FORM SUBMISSION - Parsed data:", JSON.stringify(data, null, 2));
-        
-        const record = await storage.createPayrollRecord(data);
-        console.log("LEAVE FORM SUBMISSION - Record created:", JSON.stringify(record, null, 2));
-        
-        // Log activity
-        await storage.createActivityLog({
-          userId,
-          action: "Create Leave Record",
-          details: `Created leave record for employee ID ${record.employeeId}`
-        });
-        
-        console.log("LEAVE FORM SUBMISSION - Success response sent");
-        res.status(201).json(record);
-      } catch (validationError) {
-        console.error("LEAVE FORM SUBMISSION - Validation error:", validationError);
-        
-        if (validationError instanceof ZodError) {
-          // Get detailed validation errors
-          const formattedError = fromZodError(validationError);
-          console.error("LEAVE FORM SUBMISSION - Formatted error:", formattedError);
-          return res.status(400).json({ 
-            error: "Validation failed", 
-            details: formattedError.message,
-            fields: formattedError.details
-          });
-        }
-        
-        throw validationError; // Re-throw if not a ZodError
-      }
-    } catch (error) {
-      console.error("LEAVE FORM SUBMISSION - Unexpected error:", error);
-      next(error);
-    }
-  });
+  // POST /api/leave endpoint removed
   
-  app.get("/api/leave/:id", isAuthenticated, async (req, res, next) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: "Invalid record ID" });
-      }
-      
-      const record = await storage.getPayrollRecord(id);
-      
-      if (!record) {
-        return res.status(404).json({ error: "Leave record not found" });
-      }
-      
-      if (record.recordType !== "Leave") {
-        return res.status(400).json({ error: "Record is not a leave record" });
-      }
-      
-      res.json(record);
-    } catch (error) {
-      next(error);
-    }
-  });
+  // GET /api/leave/:id endpoint removed
   
   app.patch("/api/leave/:id", isAuthenticated, async (req, res, next) => {
     try {
