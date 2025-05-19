@@ -1161,6 +1161,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(error);
     }
   });
+  
+  // Dashboard data endpoint
+  app.get('/api/dashboard', isAuthenticated, async (req, res, next) => {
+    try {
+      const dashboardData = await storage.getDashboardData();
+      res.json(dashboardData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      next(error);
+    }
+  });
 
   app.get('/api/maternity-records/:id', isAuthenticated, async (req, res, next) => {
     try {
