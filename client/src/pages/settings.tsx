@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import OvertimeRatesSettings from '@/components/settings/overtime-rates-settings';
 import EmailSettings from '@/components/settings/email-settings';
 import UserManagement from '@/components/settings/user-management';
+import ArchiveRecordsSettings from '@/components/settings/archive-records-settings';
 
 export default function SettingsPage() {
   const { user } = useAuth();

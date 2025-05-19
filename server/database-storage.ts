@@ -2,13 +2,13 @@ import { eq, and, gt, lt, gte, lte, desc, isNull, or, sql, count, inArray } from
 import { db } from "./db";
 import {
   users, employees, payrollRecords, recurringDeductions, exportRecords, emailSettings, activityLogs, overtimeRates,
-  insurancePolicies, policyPayments, policyExports, maternityRecords,
+  insurancePolicies, policyPayments, policyExports, maternityRecords, archivedPayrollRecords,
   User, InsertUser, Employee, InsertEmployee,
   PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
   ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
   InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment, PolicyExport, InsertPolicyExport,
-  MaternityRecord, InsertMaternityRecord
+  MaternityRecord, InsertMaternityRecord, ArchivedPayrollRecord, InsertArchivedPayrollRecord
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -1130,6 +1130,56 @@ export class DatabaseStorage implements IStorage {
       .where(eq(garnisheePayments.id, id));
     
     return result.rowCount > 0;
+  }
+  
+  // Archive functionality
+  async archivePayrollRecords(userId: number, recordTypes: string[]): Promise<{ 
+    archivedCount: number; 
+    recordTypes: string[]; 
+  }> {
+    // Start a transaction to ensure data consistency
+    return await db.transaction(async (tx) => {
+      // Get records to archive (only earnings and deductions)
+      const recordsToArchive = await tx.select()
+        .from(payrollRecords)
+        .where(inArray(payrollRecords.recordType, recordTypes));
+      
+      if (recordsToArchive.length === 0) {
+        return { archivedCount: 0, recordTypes };
+      }
+      
+      // Prepare records for archive table
+      const archivedRecords = recordsToArchive.map(record => ({
+        originalId: record.id,
+        employeeId: record.employeeId,
+        recordType: record.recordType,
+        amount: record.amount,
+        details: record.details,
+        notes: record.notes,
+        date: record.date,
+        status: "Archived",
+        documentImage: record.documentImage,
+        startDate: record.startDate,
+        endDate: record.endDate,
+        totalDays: record.totalDays,
+        approved: record.approved,
+        createdAt: record.createdAt,
+        archivedBy: userId,
+      }));
+      
+      // Insert records into archive table
+      await tx.insert(archivedPayrollRecords).values(archivedRecords);
+      
+      // Delete records from the original table
+      const deletedRecords = await tx.delete(payrollRecords)
+        .where(inArray(payrollRecords.recordType, recordTypes))
+        .returning({ id: payrollRecords.id });
+      
+      return { 
+        archivedCount: deletedRecords.length,
+        recordTypes
+      };
+    });
   }
   
   async getGarnisheeDashboardData(): Promise<{

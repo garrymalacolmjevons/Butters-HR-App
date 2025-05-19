@@ -1395,6 +1395,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Archive records route
+  app.post("/api/archive-records", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const { recordTypes } = req.body;
+      
+      if (!recordTypes || !Array.isArray(recordTypes) || recordTypes.length === 0) {
+        return res.status(400).json({ error: "Invalid record types for archiving" });
+      }
+      
+      // Only allow archiving of earnings and deductions
+      const validTypes = ['Advance', 'Loan', 'Deduction', 'Overtime', 'Standby Shift', 
+                          'Special Shift', 'Escort Allowance', 'Commission', 
+                          'Cash in Transit', 'Camera Allowance'];
+      
+      const typesToArchive = recordTypes.filter(type => validTypes.includes(type));
+      
+      if (typesToArchive.length === 0) {
+        return res.status(400).json({ error: "No valid record types selected for archiving" });
+      }
+      
+      const result = await storage.archivePayrollRecords(userId, typesToArchive);
+      
+      // Log the activity
+      await storage.createActivityLog({
+        userId,
+        action: "Archive Records",
+        details: `Archived ${result.archivedCount} ${result.recordTypes.join(", ")} records`
+      });
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
   // Garnishee Payment routes
   app.get("/api/garnishee-payments/:garnisheeId", isAuthenticated, async (req, res, next) => {
     try {
