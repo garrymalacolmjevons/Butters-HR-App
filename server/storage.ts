@@ -1,6 +1,6 @@
 import { 
   User, InsertUser, Employee, InsertEmployee,
-  PayrollRecord, InsertPayrollRecord, RecurringDeduction, InsertRecurringDeduction,
+  PayrollRecord, InsertPayrollRecord,
   ExportRecord, InsertExportRecord, EmailSettings, InsertEmailSettings, 
   ActivityLog, InsertActivityLog, OvertimeRate, InsertOvertimeRate, EmployeeWithFullName,
   InsurancePolicy, InsertInsurancePolicy, PolicyPayment, InsertPolicyPayment,
@@ -38,15 +38,7 @@ export interface IStorage {
   updatePayrollRecord(id: number, payrollRecord: Partial<InsertPayrollRecord>): Promise<PayrollRecord | undefined>;
   deletePayrollRecord(id: number): Promise<boolean>;
   
-  // Recurring Deductions
-  getRecurringDeductions(filter?: { 
-    employeeId?: number;
-    deductionName?: string;
-  }): Promise<(RecurringDeduction & { employeeName: string })[]>;
-  getRecurringDeduction(id: number): Promise<(RecurringDeduction & { employeeName: string }) | undefined>;
-  createRecurringDeduction(deduction: InsertRecurringDeduction): Promise<RecurringDeduction>;
-  updateRecurringDeduction(id: number, deduction: Partial<InsertRecurringDeduction>): Promise<RecurringDeduction | undefined>;
-  deleteRecurringDeduction(id: number): Promise<boolean>;
+
   
   // Email Settings
   getEmailSettings(): Promise<EmailSettings | undefined>;
@@ -126,7 +118,6 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private employees: Map<number, Employee>;
   private payrollRecords: Map<number, PayrollRecord>;
-  private recurringDeductions: Map<number, RecurringDeduction>;
   private emailSettings: Map<number, EmailSettings>;
   private exportRecords: Map<number, ExportRecord>;
   private activityLogs: Map<number, ActivityLog>;
@@ -138,7 +129,6 @@ export class MemStorage implements IStorage {
   private userId: number;
   private employeeId: number;
   private payrollRecordId: number;
-  private recurringDeductionId: number;
   private emailSettingsId: number;
   private exportId: number;
   private activityLogId: number;
@@ -151,7 +141,6 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.employees = new Map();
     this.payrollRecords = new Map();
-    this.recurringDeductions = new Map();
     this.emailSettings = new Map();
     this.exportRecords = new Map();
     this.activityLogs = new Map();
@@ -163,7 +152,6 @@ export class MemStorage implements IStorage {
     this.userId = 1;
     this.employeeId = 1;
     this.payrollRecordId = 1;
-    this.recurringDeductionId = 1;
     this.emailSettingsId = 1;
     this.exportId = 1;
     this.activityLogId = 1;

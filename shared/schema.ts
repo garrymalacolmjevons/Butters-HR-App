@@ -28,7 +28,6 @@ export const overtimeTypeEnum = pgEnum('overtime_type', ['Weekday', 'Saturday', 
 export const userRoleEnum = pgEnum('user_role', ['Admin', 'HR Manager', 'Payroll Officer', 'Viewer']);
 export const insuranceCompanyEnum = pgEnum('insurance_company', ['Sanlam Sky', 'Avbob', 'Old Mutual', 'Provident Fund']);
 export const policyStatusEnum = pgEnum('policy_status', ['Active', 'Cancelled', 'Pending', 'Suspended']);
-export const garnisheeStatusEnum = pgEnum('garnishee_status', ['Active', 'Completed', 'Cancelled', 'Suspended']);
 
 // Users (HR staff)
 export const users = pgTable("users", {
@@ -422,10 +421,7 @@ export const insertMaternityRecordSchema = createInsertSchema(maternityRecords).
 export type InsertMaternityRecord = z.infer<typeof insertMaternityRecordSchema>;
 export type MaternityRecord = typeof maternityRecords.$inferSelect;
 
-// Staff Garnishee Orders table removed
-// Garnishee Payments table removed
 
-// Garnishee relations and types removed
 
 // Archived Payroll Records - for storing historical earnings and deductions
 export const archivedPayrollRecords = pgTable("archived_payroll_records", {
