@@ -1363,6 +1363,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  app.put("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const garnishee = await storage.updateStaffGarnishee(id, req.body);
+      
+      if (!garnishee) {
+        return res.status(404).json({ message: "Garnishee order not found" });
+      }
+      
+      res.json(garnishee);
+    } catch (error) {
+      console.error("Update staff garnishee error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  // Keep PATCH endpoint for backwards compatibility
   app.patch("/api/staff-garnishees/:id", isAuthenticated, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
@@ -1391,6 +1408,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).end();
     } catch (error) {
       console.error("Delete staff garnishee error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  // Garnishee Payments routes
+  app.get("/api/garnishee-payments/:garnisheeId", isAuthenticated, async (req, res, next) => {
+    try {
+      const garnisheeId = parseInt(req.params.garnisheeId);
+      const payments = await storage.getGarnisheePayments(garnisheeId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Get garnishee payments error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+  
+  app.post("/api/garnishee-payments", isAuthenticated, async (req, res, next) => {
+    try {
+      const payment = await storage.createGarnisheePayment(req.body);
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Create garnishee payment error:", error);
       res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
     }
   });
