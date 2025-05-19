@@ -231,7 +231,6 @@ export default function Sidebar() {
           path="/policies" 
           label="Policies" 
         />
-        {/* Reports button removed as requested */}
         <NavItem 
           icon={FileText} 
           path="/records-editor" 
@@ -242,7 +241,6 @@ export default function Sidebar() {
           path="/maternity-tracker" 
           label="Maternity Tracker" 
         />
-        {/* Garnishee Orders removed as requested */}
         <NavItem 
           icon={Activity} 
           path="/activity" 
