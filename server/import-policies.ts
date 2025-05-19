@@ -105,9 +105,9 @@ async function importPolicies() {
         // Map policy data from CSV to database schema
         const insertQuery = `
           INSERT INTO insurance_policies (
-            employee_id, company, policy_number, amount, notes, status, start_date, created_at, updated_at
+            employee_id, company, policy_number, amount, notes, status, start_date, created_by, updated_by, created_at, updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+            $1, $2, $3, $4, $5, $6, $7, 1, 1, NOW(), NOW()
           ) RETURNING id
         `;
         
@@ -120,14 +120,15 @@ async function importPolicies() {
         // Set current date for start_date if not provided
         const today = new Date();
         
-        // Values to insert
+        // Values to insert with today's date for start_date
         const values = [
           employeeId,
           companyName,
           policyNumber,
           value,
           policy.Comment,
-          policy.Status === 'Active' ? 'Active' : 'Cancelled'
+          policy.Status === 'Active' ? 'Active' : 'Cancelled',
+          today
         ];
         
         // Execute query
