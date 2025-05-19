@@ -877,6 +877,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(error);
     }
   });
+  
+  // Archive payroll records
+  app.post('/api/archive-records', isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const { recordTypes } = req.body;
+      
+      if (!recordTypes || !Array.isArray(recordTypes) || recordTypes.length === 0) {
+        return res.status(400).json({ error: "Record types are required for archiving" });
+      }
+      
+      // Call storage method to archive records
+      const result = await storage.archivePayrollRecords(userId, recordTypes);
+      
+      // Log activity
+      await storage.createActivityLog({
+        userId,
+        action: "Archive Records",
+        details: `Archived ${result.archivedCount} records of types: ${recordTypes.join(', ')}`
+      });
+      
+      // Send JSON response with the result
+      return res.json(result);
+    } catch (error) {
+      console.error('Error archiving records:', error);
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: fromZodError(error).message });
+      }
+      // Handle other errors
+      return res.status(500).json({ 
+        error: error instanceof Error ? error.message : "An error occurred during archiving" 
+      });
+    }
+  });
 
   app.post('/api/policies', isAuthenticated, async (req, res, next) => {
     try {

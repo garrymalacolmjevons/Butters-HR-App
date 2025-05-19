@@ -46,10 +46,34 @@ export default function ArchiveRecordsSettings() {
       });
       
       if (!response.ok) {
-        throw new Error(`Archive failed: ${response.statusText}`);
+        // Check content type to handle HTML error responses
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error(`Server error: Please try again later.`);
+        } else {
+          const errorText = await response.text();
+          try {
+            // Try to parse as JSON
+            const errorData = JSON.parse(errorText);
+            throw new Error(errorData.error || `Archive failed: ${response.statusText}`);
+          } catch (e) {
+            // If parsing fails, use the raw text
+            throw new Error(`Archive failed: ${errorText || response.statusText}`);
+          }
+        }
       }
       
-      return await response.json();
+      const responseText = await response.text();
+      if (!responseText) {
+        return { archivedCount: 0, recordTypes };
+      }
+      
+      try {
+        return JSON.parse(responseText);
+      } catch (e) {
+        console.error('Error parsing JSON response:', e);
+        return { archivedCount: 0, recordTypes };
+      }
     },
     onSuccess: (data) => {
       toast({
@@ -59,6 +83,7 @@ export default function ArchiveRecordsSettings() {
       setSelectedTypes([]);
     },
     onError: (error) => {
+      console.error('Archive error:', error);
       toast({
         title: "Archive Failed",
         description: error instanceof Error ? error.message : "An error occurred during archiving. Please try again.",
