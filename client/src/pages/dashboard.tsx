@@ -27,63 +27,12 @@ export default function Dashboard() {
         />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Summary Cards */}
-        <SummaryCard
-          title="Total Employees"
-          value={isLoadingDashboard ? "Loading..." : dashboardData?.employeeCount || 0}
-          icon={<Users className="text-amber-500" />}
-          breakdown={
-            isLoadingDashboard
-              ? { primary: "-", secondary: "-" }
-              : {
-                  primary: "Butters Security",
-                  secondary: "Staff",
-                }
-          }
-        />
-        
-        <SummaryCard
-          title="Policy Value Total"
-          value={isLoadingDashboard ? "Loading..." : formatCurrency(dashboardData?.policyValueTotal || 0)}
-          icon={<FileText className="text-green-600" />}
-          breakdown={
-            isLoadingDashboard
-              ? { primary: "-", secondary: "-" }
-              : {
-                  primary: `${dashboardData?.policyCount || 0} Active Policies`,
-                  secondary: "This Month",
-                }
-          }
-        />
-        
-        <SummaryCard
-          title="Total Monthly Earnings"
-          value={isLoadingDashboard ? "Loading..." : formatCurrency(dashboardData?.monthlyEarnings || 0)}
-          icon={<BanknoteIcon className="text-blue-600" />}
-          breakdown={
-            isLoadingDashboard
-              ? { primary: "-", secondary: "-" }
-              : {
-                  primary: "All Earnings",
-                  secondary: "This Month",
-                }
-          }
-        />
-        
-        <SummaryCard
-          title="Total Deductions"
-          value={isLoadingDashboard ? "Loading..." : formatCurrency(dashboardData?.totalDeductions || 0)}
-          icon={<DollarSign className="text-red-500" />}
-          breakdown={
-            isLoadingDashboard
-              ? { primary: "-", secondary: "-" }
-              : {
-                  primary: "All Deductions",
-                  secondary: "This Month",
-                }
-          }
-        />
+      {/* Placeholder for summary cards grid - will be re-implemented */}
+      <div className="flex items-center justify-center p-8 mb-8 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-gray-500 text-center">
+          <span className="block text-primary font-semibold text-lg mb-2">Welcome to the HR Portal Dashboard</span>
+          Access employee management, payroll, and policy features using the sidebar navigation
+        </p>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
