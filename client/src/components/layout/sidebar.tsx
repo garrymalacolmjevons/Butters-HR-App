@@ -24,6 +24,8 @@ import {
   UserCheck,
   UserMinus,
   Wallet,
+  UserIcon,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -33,6 +35,9 @@ export default function Sidebar() {
   const { logout } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const isMobile = useIsMobile();
+  const [openGroups, setOpenGroups] = useState<{[key: string]: boolean}>({
+    "staffActions": true  // Open by default
+  });
 
   // Collapse sidebar on mobile by default
   useEffect(() => {
@@ -52,6 +57,60 @@ export default function Sidebar() {
 
   const toggleSidebar = () => {
     setExpanded(!expanded);
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId]
+    }));
+  };
+
+  const MenuGroup = ({ 
+    id, 
+    icon: Icon, 
+    label, 
+    children 
+  }: { 
+    id: string;
+    icon: any; 
+    label: string; 
+    children: React.ReactNode;
+  }) => {
+    const isOpen = openGroups[id];
+    
+    return (
+      <div className="mb-2">
+        <button 
+          onClick={() => toggleGroup(id)} 
+          className={cn(
+            "flex items-center w-full px-2 py-2",
+            "text-neutral-300 hover:text-white transition-colors duration-200"
+          )}
+        >
+          <div className="flex items-center h-8 px-3 my-1 rounded-lg w-full">
+            <Icon className="h-5 w-5 min-w-5" />
+            {expanded && (
+              <>
+                <span className="ml-3 whitespace-nowrap overflow-hidden text-sm font-medium flex-grow">
+                  {label}
+                </span>
+                <ChevronDown size={16} className={cn(
+                  "transition-transform duration-200",
+                  isOpen ? "transform rotate-180" : ""
+                )} />
+              </>
+            )}
+          </div>
+        </button>
+        <div className={cn(
+          "overflow-hidden transition-all duration-200 pl-2",
+          isOpen ? "max-h-96" : "max-h-0"
+        )}>
+          {children}
+        </div>
+      </div>
+    );
   };
 
   const NavItem = ({ 
@@ -143,16 +202,25 @@ export default function Sidebar() {
           path="/earnings" 
           label="Earnings" 
         />
-        <NavItem 
-          icon={Calendar} 
-          path="/leave" 
-          label="Leave" 
-        />
-        <NavItem 
-          icon={UserMinus} 
-          path="/terminations" 
-          label="Terminations" 
-        />
+        
+        {/* Staff Actions Group */}
+        <MenuGroup
+          id="staffActions"
+          icon={UserIcon}
+          label="Staff Actions"
+        >
+          <NavItem 
+            icon={Calendar} 
+            path="/leave" 
+            label="Leave" 
+          />
+          <NavItem 
+            icon={UserMinus} 
+            path="/terminations" 
+            label="Terminations" 
+          />
+        </MenuGroup>
+        
         <NavItem 
           icon={Wallet} 
           path="/deductions" 
