@@ -365,15 +365,10 @@ export default function DeductionsPage() {
     }),
   ];
 
-  // Setup React Hook Form for enhanced validation
+  // Create form methods for the enhanced employee search
   const methods = useForm<DeductionFormData>({
     defaultValues: formData,
   });
-
-  // Update React Hook Form when form data changes
-  useEffect(() => {
-    methods.reset(formData);
-  }, [formData]);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
