@@ -162,7 +162,7 @@ export function PolicyExportForm({ onSuccess, onCancel }: PolicyExportFormProps)
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">All Companies</SelectItem>
+                        <SelectItem value="all">All Companies</SelectItem>
                         <SelectItem value="Sanlam Sky">Sanlam Sky</SelectItem>
                         <SelectItem value="Avbob">Avbob</SelectItem>
                         <SelectItem value="Old Mutual">Old Mutual</SelectItem>

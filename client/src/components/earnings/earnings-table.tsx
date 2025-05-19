@@ -382,7 +382,7 @@ export function EarningsTable({ recordType, onEditEarning }: EarningsTableProps)
                   <SelectValue placeholder="All Employees" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Employees</SelectItem>
+                  <SelectItem value="all">All Employees</SelectItem>
                   {Array.isArray(employees) && employees.map((employee: any) => (
                     <SelectItem key={employee.id} value={employee.id.toString()}>
                       {employee.firstName} {employee.lastName}
