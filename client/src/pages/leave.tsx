@@ -1,337 +1,678 @@
-import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { PayrollRecord, InsertPayrollRecord } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
-import { useLocation } from "wouter";
-
-import { PageHeader, PageHeaderAction } from "@/components/ui/page-header";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, X, CalendarIcon } from "lucide-react";
+import { PageHeader } from "@/components/common/page-header";
+import { useAuth } from "@/lib/auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { LeaveTable } from "@/components/leave/leave-table";
-import { SimpleLeaveForm } from "@/components/leave/simple-leave-form";
-import { EmergencyLeaveForm } from "@/components/leave/emergency-leave-form";
-import { DirectLeaveForm } from "@/components/leave/direct-leave-form";
-import { LeaveSummary } from "@/components/leave/leave-summary";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { format, differenceInDays, addDays } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { DataTable } from "@/components/ui/data-table";
+import { createColumnHelper } from "@tanstack/react-table";
+import { Badge } from "@/components/ui/badge";
 
-// Type for leave records with employee info
-type LeaveRecordWithExtras = PayrollRecord & { employeeName: string; company: string };
+interface LeaveFormData {
+  employeeId: number | null;
+  date: string | null;
+  recordType: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  totalDays?: number | null;
+  status: string;
+  details?: string | null;
+  notes?: string | null;
+  documentImage?: string | null;
+  approved: boolean;
+}
 
-export default function Leave() {
-  const [location, setLocation] = useLocation();
+export default function LeavePage() {
+  const { user } = useAuth();
   const { toast } = useToast();
+  const [showLeaveForm, setShowLeaveForm] = useState(false);
+  const [date, setDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [leaveIdToEdit, setLeaveIdToEdit] = useState<number | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   
-  const [companyFilter, setCompanyFilter] = useState<string>("All Companies");
-  const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>("All Leave Types");
-  const [statusFilter, setStatusFilter] = useState<string>("All Status");
-  const [startDateFilter, setStartDateFilter] = useState<string>("");
-  const [endDateFilter, setEndDateFilter] = useState<string>("");
-  
-  const [isLeaveFormOpen, setIsLeaveFormOpen] = useState<boolean>(false);
-  const [selectedLeave, setSelectedLeave] = useState<LeaveRecordWithExtras | null>(null);
-  const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  
-  // Check if new leave should be created based on URL query parameter
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.split("?")[1]);
-    if (searchParams.get("action") === "new") {
-      setFormMode("create");
-      setSelectedLeave(null);
-      setIsLeaveFormOpen(true);
-      // Remove the query parameter from the URL
-      setLocation("/leave", { replace: true });
-    }
-  }, [location]);
-  
-  // Initialize the date range to current month if not set
-  useEffect(() => {
-    if (!startDateFilter && !endDateFilter) {
-      const today = new Date();
-      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      
-      setStartDateFilter(firstDayOfMonth.toISOString().split('T')[0]);
-      setEndDateFilter(lastDayOfMonth.toISOString().split('T')[0]);
-    }
-  }, []);
-  
-  // Build filter object for API
-  const buildFilter = () => {
-    const filter: Record<string, any> = {};
-    if (companyFilter !== "All Companies") filter.company = companyFilter;
-    if (leaveTypeFilter !== "All Leave Types") filter.leaveType = leaveTypeFilter;
-    if (statusFilter !== "All Status") filter.status = statusFilter;
-    if (startDateFilter) filter.startDate = startDateFilter;
-    if (endDateFilter) filter.endDate = endDateFilter;
-    return filter;
-  };
-  
-  // Fetch leave records
-  const { data: leaveRecords = [], isLoading: isLoadingLeaves } = useQuery<LeaveRecordWithExtras[]>({
-    queryKey: ["/api/leave", buildFilter()],
+  // Form state
+  const [formData, setFormData] = useState<LeaveFormData>({
+    employeeId: null,
+    date: format(date, "yyyy-MM-dd"),
+    recordType: "Leave",
+    startDate: format(startDate, "yyyy-MM-dd"),
+    endDate: format(endDate, "yyyy-MM-dd"),
+    totalDays: 1,
+    status: "Pending",
+    details: null,
+    notes: null,
+    documentImage: null,
+    approved: false
   });
-  
-  // Calculate summary data
-  const leaveSummary = {
-    annual: {
-      total: leaveRecords.filter(l => l.subType === "Annual Leave").length,
-      butters: leaveRecords.filter(l => l.subType === "Annual Leave" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.subType === "Annual Leave" && l.company === "Makana").length,
-    },
-    sick: {
-      total: leaveRecords.filter(l => l.subType === "Sick Leave").length,
-      butters: leaveRecords.filter(l => l.subType === "Sick Leave" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.subType === "Sick Leave" && l.company === "Makana").length,
-    },
-    unpaid: {
-      total: leaveRecords.filter(l => l.subType === "Unpaid Leave").length,
-      butters: leaveRecords.filter(l => l.subType === "Unpaid Leave" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.subType === "Unpaid Leave" && l.company === "Makana").length,
-    },
-    pending: {
-      total: leaveRecords.filter(l => l.status === "Pending").length,
-      butters: leaveRecords.filter(l => l.status === "Pending" && l.company === "Butters").length,
-      makana: leaveRecords.filter(l => l.status === "Pending" && l.company === "Makana").length,
-    },
-  };
-  
+
+  // Fetch employees
+  const { data: employees = [] } = useQuery({
+    queryKey: ['/api/employees'],
+  });
+
+  // Fetch leave records
+  const { data: leaveRecords = [], isLoading } = useQuery({
+    queryKey: ['/api/payroll-records', { recordType: 'Leave' }],
+  });
+
   // Create leave mutation
-  const createLeaveMutation = useMutation({
-    mutationFn: (data: InsertPayrollRecord) => 
-      apiRequest("/api/leave", {
-        method: "POST", 
-        body: JSON.stringify(data)
-      }),
+  const createLeave = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/payroll-records", data);
+      return response.json();
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      // Invalidate relevant queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/payroll-records'] });
       toast({
-        title: "Leave record created",
-        description: "The leave record has been created successfully",
+        title: "Success",
+        description: "Leave record created successfully",
+        variant: "default",
       });
-      setIsLeaveFormOpen(false);
+      resetForm();
     },
-    onError: (error: Error) => {
+    onError: (error) => {
+      console.error("Error creating leave:", error);
       toast({
+        title: "Error",
+        description: `Failed to create leave: ${error.message}`,
         variant: "destructive",
-        title: "Error creating leave record",
-        description: error.message,
       });
-    },
+    }
   });
   
   // Update leave mutation
-  const updateLeaveMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<InsertPayrollRecord> }) => 
-      apiRequest(`/api/leave/${id}`, {
-        method: "PATCH", 
-        body: JSON.stringify(data)
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      toast({
-        title: "Leave record updated",
-        description: "The leave record has been updated successfully",
-      });
-      setIsLeaveFormOpen(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error updating leave record",
-        description: error.message,
-      });
-    },
-  });
-  
-  // Delete leave mutation
-  const deleteLeaveMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest(`/api/leave/${id}`, {
-        method: "DELETE"
-      });
+  const updateLeave = useMutation({
+    mutationFn: async ({ id, data }: { id: number, data: any }) => {
+      const response = await apiRequest("PATCH", `/api/payroll-records/${id}`, data);
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      // Invalidate relevant queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/payroll-records'] });
       toast({
-        title: "Leave record deleted",
-        description: "The leave record has been deleted successfully",
+        title: "Success",
+        description: "Leave record updated successfully",
+        variant: "default",
       });
+      setIsEditMode(false);
+      setLeaveIdToEdit(null);
+      resetForm();
     },
-    onError: (error: Error) => {
+    onError: (error) => {
+      console.error("Error updating leave:", error);
       toast({
+        title: "Error",
+        description: `Failed to update leave: ${error.message}`,
         variant: "destructive",
-        title: "Error deleting leave record",
-        description: error.message,
       });
-    },
+    }
   });
-  
-  const handleCreateLeave = () => {
-    setFormMode("create");
-    setSelectedLeave(null);
-    setIsLeaveFormOpen(true);
-  };
-  
-  const handleEditLeave = (leave: LeaveRecordWithExtras) => {
-    setFormMode("edit");
-    setSelectedLeave(leave);
-    setIsLeaveFormOpen(true);
-  };
-  
-  const handleViewLeave = (leave: LeaveRecordWithExtras) => {
-    toast({
-      title: "View Leave Record",
-      description: `Viewing leave record for ${leave.employeeName}`,
+
+  const resetForm = () => {
+    setFormData({
+      employeeId: null,
+      date: format(new Date(), "yyyy-MM-dd"),
+      recordType: "Leave",
+      startDate: format(new Date(), "yyyy-MM-dd"),
+      endDate: format(new Date(), "yyyy-MM-dd"),
+      totalDays: 1,
+      status: "Pending",
+      details: null,
+      notes: null,
+      documentImage: null,
+      approved: false
     });
-    // View functionality could be added here
+    setDate(new Date());
+    setStartDate(new Date());
+    setEndDate(new Date());
+    setIsEditMode(false);
+    setLeaveIdToEdit(null);
+    setImagePreview(null);
   };
   
-  const handleDeleteLeave = (leave: LeaveRecordWithExtras) => {
-    if (window.confirm(`Are you sure you want to delete the leave record for ${leave.employeeName}?`)) {
-      deleteLeaveMutation.mutate(leave.id);
+  // Handle editing an existing leave record
+  const handleEditLeave = (leave: any) => {
+    // Set form data from the leave record
+    setFormData({
+      employeeId: leave.employeeId,
+      date: leave.date,
+      recordType: "Leave",
+      startDate: leave.startDate || leave.date,
+      endDate: leave.endDate || leave.date,
+      totalDays: leave.totalDays || 1,
+      status: leave.status || "Pending",
+      details: leave.details || null,
+      notes: leave.notes || null,
+      documentImage: leave.documentImage || null,
+      approved: leave.approved || false
+    });
+    
+    // Set dates for calendar
+    if (leave.date) {
+      setDate(new Date(leave.date));
+    }
+    if (leave.startDate) {
+      setStartDate(new Date(leave.startDate));
+    }
+    if (leave.endDate) {
+      setEndDate(new Date(leave.endDate));
+    }
+    
+    // Set document image preview if exists
+    if (leave.documentImage) {
+      setImagePreview(leave.documentImage);
+    }
+    
+    // Set edit mode
+    setIsEditMode(true);
+    setLeaveIdToEdit(leave.id);
+    
+    // Open the form
+    setShowLeaveForm(true);
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate) {
+      setDate(selectedDate);
+      setFormData(prev => ({
+        ...prev,
+        date: format(selectedDate, "yyyy-MM-dd")
+      }));
     }
   };
-  
-  const handleFormSubmit = (values: any) => {
-    // Convert any date objects to strings for consistent API handling
-    const formattedValues = {
-      ...values,
-      date: values.date ? (typeof values.date === 'string' ? values.date : values.date.toISOString().split('T')[0]) : undefined,
-      startDate: values.startDate ? (typeof values.startDate === 'string' ? values.startDate : values.startDate.toISOString().split('T')[0]) : undefined,
-      endDate: values.endDate ? (typeof values.endDate === 'string' ? values.endDate : values.endDate.toISOString().split('T')[0]) : undefined,
+
+  const handleStartDateSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate) {
+      setStartDate(selectedDate);
+      setFormData(prev => {
+        const newStartDate = format(selectedDate, "yyyy-MM-dd");
+        const currentEndDate = prev.endDate ? new Date(prev.endDate) : new Date();
+        
+        // Calculate new total days
+        const daysDiff = differenceInDays(
+          currentEndDate,
+          selectedDate
+        ) + 1;
+        
+        return {
+          ...prev,
+          startDate: newStartDate,
+          totalDays: daysDiff > 0 ? daysDiff : 1
+        };
+      });
+    }
+  };
+
+  const handleEndDateSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate) {
+      setEndDate(selectedDate);
+      setFormData(prev => {
+        const currentStartDate = prev.startDate ? new Date(prev.startDate) : new Date();
+        const newEndDate = format(selectedDate, "yyyy-MM-dd");
+        
+        // Calculate new total days
+        const daysDiff = differenceInDays(
+          selectedDate,
+          currentStartDate
+        ) + 1;
+        
+        return {
+          ...prev,
+          endDate: newEndDate,
+          totalDays: daysDiff > 0 ? daysDiff : 1
+        };
+      });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Only accept images
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64String = event.target?.result as string;
+      
+      // Set preview
+      setImagePreview(base64String);
+      
+      try {
+        // Upload the image to server
+        const response = await apiRequest("POST", "/api/uploads/base64", {
+          image: base64String,
+          filename: `leave_doc_${Date.now()}.${file.name.split('.').pop()}`
+        });
+        
+        const result = await response.json();
+        
+        if (result.fileUrl) {
+          // Update form data with the file URL
+          handleInputChange("documentImage", result.fileUrl);
+          toast({
+            title: "Success",
+            description: "Document uploaded successfully",
+          });
+        }
+      } catch (error) {
+        console.error("Error uploading document:", error);
+        toast({
+          title: "Error",
+          description: "Failed to upload document",
+          variant: "destructive",
+        });
+      }
     };
     
-    console.log("Form submission with formatted values:", formattedValues);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveLeave = async (e: React.MouseEvent) => {
+    e.preventDefault();
     
-    if (formMode === "create") {
-      createLeaveMutation.mutate(formattedValues);
-    } else if (selectedLeave) {
-      updateLeaveMutation.mutate({ id: selectedLeave.id, data: formattedValues });
+    // Validate form data
+    if (!formData.employeeId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select an employee",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.date) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.startDate || !formData.endDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please select both start and end dates",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.details) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter leave type details",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Submit the data - either create or update
+      if (isEditMode && leaveIdToEdit) {
+        await updateLeave.mutateAsync({ id: leaveIdToEdit, data: formData });
+      } else {
+        await createLeave.mutateAsync(formData);
+      }
+      
+      // Force refetch all leave records
+      await queryClient.invalidateQueries({ queryKey: ['/api/payroll-records'] });
+      
+      // Close the form dialog
+      setShowLeaveForm(false);
+    } catch (error) {
+      console.error("Error saving leave:", error);
+      // Error is already handled by the mutation
     }
   };
+
+  // Table configuration for leave records
+  const columnHelper = createColumnHelper<any>();
   
-  const handleApplyFilters = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/leave"] });
-  };
-  
+  const columns = [
+    columnHelper.accessor("employeeCode", {
+      header: "Emp. Code",
+      cell: (info) => info.getValue() || `-`,
+    }),
+    columnHelper.accessor("employeeName", {
+      header: "Employee",
+      cell: (info) => info.getValue(),
+    }),
+    columnHelper.accessor("details", {
+      header: "Leave Type",
+      cell: (info) => info.getValue() || "Not specified",
+    }),
+    columnHelper.accessor("startDate", {
+      header: "Start Date",
+      cell: (info) => {
+        const startDate = info.getValue();
+        return startDate ? format(new Date(startDate), "dd MMM yyyy") : format(new Date(info.row.original.date), "dd MMM yyyy");
+      },
+    }),
+    columnHelper.accessor("endDate", {
+      header: "End Date",
+      cell: (info) => {
+        const endDate = info.getValue();
+        return endDate ? format(new Date(endDate), "dd MMM yyyy") : format(new Date(info.row.original.date), "dd MMM yyyy");
+      },
+    }),
+    columnHelper.accessor("totalDays", {
+      header: "Days",
+      cell: (info) => info.getValue() || 1,
+    }),
+    columnHelper.accessor("status", {
+      header: "Status",
+      cell: (info) => {
+        const status = info.getValue();
+        if (!status) return <Badge variant="outline">Not Set</Badge>;
+        
+        const variant = 
+          status === "Approved" ? "success" : 
+          status === "Rejected" ? "destructive" : 
+          "outline";
+        
+        return <Badge variant={variant}>{status}</Badge>;
+      },
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: "Actions",
+      cell: (info) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => handleEditLeave(info.row.original)}
+          >
+            Edit
+          </Button>
+        </div>
+      ),
+    }),
+  ];
+
   return (
-    <div className="p-6">
+    <div className="container mx-auto py-6 space-y-6">
       <PageHeader
         title="Leave Management"
+        description="Manage employee leave requests, approvals, and documentation"
         actions={
-          <div className="flex gap-2">
-            <Button onClick={handleCreateLeave} className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Leave Record</span>
-            </Button>
-            <DirectLeaveForm />
-          </div>
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => {
+              resetForm();
+              setShowLeaveForm(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Leave Record
+          </Button>
         }
       />
-      
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-        <div className="p-4 border-b border-neutral-200 bg-neutral-50 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-          <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-2">
-            <span className="font-medium">Filters:</span>
-            <div className="flex flex-wrap gap-2">
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-auto">
-                  <SelectValue placeholder="All Companies" />
+
+      {/* Leave Form Dialog */}
+      <Dialog open={showLeaveForm} onOpenChange={setShowLeaveForm}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <DialogTitle>{isEditMode ? "Edit Leave Record" : "Add Leave Record"}</DialogTitle>
+              <DialogClose>
+                <Button variant="ghost" size="icon">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+            <DialogDescription>
+              Fill in the details for the leave request.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employee">Employee</Label>
+              <Select
+                onValueChange={(value) => handleInputChange("employeeId", parseInt(value))}
+                value={formData.employeeId?.toString() || ""}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="All Companies">All Companies</SelectItem>
-                  <SelectItem value="Butters">Butters</SelectItem>
-                  <SelectItem value="Makana">Makana</SelectItem>
+                  {Array.isArray(employees) ? employees.map((employee: any) => (
+                    <SelectItem key={employee.id} value={employee.id.toString()}>
+                      {employee.firstName} {employee.lastName} ({employee.employeeCode})
+                    </SelectItem>
+                  )) : null}
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="details">Leave Type</Label>
+                <Select
+                  onValueChange={(value) => handleInputChange("details", value)}
+                  value={formData.details || ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Leave Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Annual Leave">Annual Leave</SelectItem>
+                    <SelectItem value="Sick Leave">Sick Leave</SelectItem>
+                    <SelectItem value="Personal Leave">Personal Leave</SelectItem>
+                    <SelectItem value="Unpaid Leave">Unpaid Leave</SelectItem>
+                    <SelectItem value="Compassionate Leave">Compassionate Leave</SelectItem>
+                    <SelectItem value="Study Leave">Study Leave</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={handleStartDateSelect}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               
-              <Select value={leaveTypeFilter} onValueChange={setLeaveTypeFilter}>
-                <SelectTrigger className="w-auto">
-                  <SelectValue placeholder="All Leave Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All Leave Types">All Leave Types</SelectItem>
-                  <SelectItem value="Annual Leave">Annual Leave</SelectItem>
-                  <SelectItem value="Sick Leave">Sick Leave</SelectItem>
-                  <SelectItem value="Personal Leave">Personal Leave</SelectItem>
-                  <SelectItem value="Unpaid Leave">Unpaid Leave</SelectItem>
-                  <SelectItem value="Compassionate Leave">Compassionate Leave</SelectItem>
-                  <SelectItem value="Study Leave">Study Leave</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-auto">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All Status">All Status</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="flex items-center space-x-2">
-                <label className="text-sm">Date Range:</label>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={handleEndDateSelect}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="totalDays">Total Days</Label>
                 <Input 
-                  type="date" 
-                  value={startDateFilter}
-                  onChange={(e) => setStartDateFilter(e.target.value)} 
-                  className="w-auto" 
-                />
-                <span>-</span>
-                <Input 
-                  type="date"
-                  value={endDateFilter}
-                  onChange={(e) => setEndDateFilter(e.target.value)}
-                  className="w-auto"
+                  id="totalDays"
+                  type="number"
+                  placeholder="0"
+                  min="1"
+                  step="1"
+                  value={formData.totalDays || ""}
+                  onChange={(e) => handleInputChange("totalDays", parseInt(e.target.value) || 1)}
                 />
               </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  onValueChange={(value) => handleInputChange("status", value)}
+                  value={formData.status || "Pending"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea 
+                id="notes"
+                placeholder="Add any additional notes or comments..."
+                value={formData.notes || ""}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="documentImage">Leave Document (Signed Form)</Label>
+              <Input 
+                id="documentImage"
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+              />
+              
+              {imagePreview && (
+                <div className="mt-2 border rounded-md p-2">
+                  <img 
+                    src={imagePreview} 
+                    alt="Document Preview" 
+                    className="max-h-40 mx-auto"
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="approved"
+                checked={formData.approved}
+                onCheckedChange={(checked) => handleInputChange("approved", checked)}
+              />
+              <Label htmlFor="approved">Mark as Approved</Label>
             </div>
           </div>
           
-          <Button 
-            variant="outline" 
-            onClick={handleApplyFilters}
-            className="flex items-center space-x-2"
-          >
-            <span>Apply Filters</span>
-          </Button>
-        </div>
-        
-        <LeaveTable
-          data={leaveRecords}
-          isLoading={isLoadingLeaves}
-          onEdit={handleEditLeave}
-          onView={handleViewLeave}
-          onDelete={handleDeleteLeave}
-        />
-      </div>
-      
-      {/* Leave Summary Cards */}
-      <LeaveSummary 
-        annual={leaveSummary.annual}
-        sick={leaveSummary.sick}
-        unpaid={leaveSummary.unpaid}
-        pending={leaveSummary.pending}
-        isLoading={isLoadingLeaves}
-      />
-      
-      {/* Simple Leave Form Dialog */}
-      <SimpleLeaveForm
-        isOpen={isLeaveFormOpen}
-        onClose={() => setIsLeaveFormOpen(false)}
-        onSubmit={handleFormSubmit}
-        isSubmitting={createLeaveMutation.isPending || updateLeaveMutation.isPending}
-      />
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              type="submit"
+              disabled={createLeave.isPending || updateLeave.isPending}
+              onClick={handleSaveLeave}
+            >
+              {createLeave.isPending || updateLeave.isPending ? 
+                "Saving..." : 
+                isEditMode ? "Update Leave Record" : "Save Leave Record"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Leave Records</CardTitle>
+          <CardDescription>View and manage all leave records</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={columns}
+            data={leaveRecords.filter((record: any) => record.recordType === "Leave")}
+            searchPlaceholder="Search leave records..."
+            searchColumn="employeeName"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

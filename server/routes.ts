@@ -16,7 +16,6 @@ import {
   insertEmployeeSchema, 
   bulkImportEmployeeSchema,
   insertPayrollRecordSchema,
-  insertRecurringDeductionSchema,
   insertExportRecordSchema,
   insertEmailSettingsSchema,
   insertOvertimeRateSchema,
