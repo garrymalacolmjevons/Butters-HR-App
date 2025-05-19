@@ -191,7 +191,7 @@ const GarnisheeOrders: React.FC = () => {
 
       if (editMode && selectedGarnishee) {
         await apiRequest(`/api/staff-garnishees/${selectedGarnishee.id}`, {
-          method: 'PATCH', 
+          method: 'PUT', 
           body: JSON.stringify(garnisheeData)
         });
         toast({
