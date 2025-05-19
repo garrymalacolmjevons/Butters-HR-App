@@ -141,6 +141,11 @@ export default function Sidebar() {
           path="/earnings" 
           label="Earnings" 
         />
+        <NavItem 
+          icon={Calendar} 
+          path="/leave" 
+          label="Leave" 
+        />
         {/* Deductions removed as requested */}
         <NavItem 
           icon={Shield} 

@@ -8,7 +8,7 @@ import Layout from "@/components/layout/layout";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
-// Leave page removed
+import LeavePage from "@/pages/leave";
 // Deductions import removed
 import Overtime from "@/pages/overtime";
 import Allowances from "@/pages/allowances";
@@ -135,7 +135,14 @@ function Router() {
         )} />
       </Route>
       
-      {/* Staff Garnishee Orders Page removed */}
+      {/* Leave Management Page */}
+      <Route path="/leave">
+        <ProtectedRoute component={() => (
+          <Layout>
+            <LeavePage />
+          </Layout>
+        )} />
+      </Route>
       
       {/* Rates Configuration Page */}
       <Route path="/rates">
