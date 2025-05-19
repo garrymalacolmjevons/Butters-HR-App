@@ -52,8 +52,29 @@ async function importPolicies() {
     
     console.log(`Found ${records.length} policy records to import`);
     
+    // Pre-fetch all employees to reduce database lookups
+    const employeesResult = await pool.query('SELECT id, employee_code, first_name, last_name FROM employees');
+    const employees = employeesResult.rows;
+    const employeesByCode = new Map();
+    const employeesByName = new Map();
+    
+    employees.forEach(emp => {
+      if (emp.employee_code) {
+        employeesByCode.set(emp.employee_code, emp.id);
+      }
+      // Create a key combining first and last name for case-insensitive lookup
+      const nameKey = `${emp.first_name.toLowerCase()}|${emp.last_name.toLowerCase()}`;
+      employeesByName.set(nameKey, emp.id);
+    });
+    
+    console.log(`Loaded ${employees.length} employees for mapping`);
+    
     // Insert each policy into the database
     let successCount = 0;
+    
+    // Prepare values for bulk import
+    const insertValues = [];
+    const today = new Date();
     
     for (const policy of records) {
       try {
@@ -64,7 +85,7 @@ async function importPolicies() {
 
         // Extract policy number from comment
         const policyNumberMatch = policy.Comment?.match(/POLICY\s+NUMBER[:\s]+([^\s,]+)/i);
-        const policyNumber = policyNumberMatch ? policyNumberMatch[1] : null;
+        const policyNumber = policyNumberMatch ? policyNumberMatch[1] : policy.Comment?.substring(0, 20) || '';
 
         // Clean up value (remove 'R' prefix and convert to number)
         const valueString = policy.Value?.replace('R', '')?.trim() || '0';
@@ -73,28 +94,13 @@ async function importPolicies() {
         // Find employee by code
         let employeeId = null;
         if (policy.Employee) {
-          const result = await pool.query(
-            'SELECT id FROM employees WHERE employee_code = $1',
-            [policy.Employee]
-          );
-          
-          if (result.rows.length > 0) {
-            employeeId = result.rows[0].id;
-          }
+          employeeId = employeesByCode.get(policy.Employee);
         }
 
-        if (!employeeId) {
+        if (!employeeId && policy['First Name'] && policy['Last Name']) {
           // Try to find by first and last name
-          if (policy['First Name'] && policy['Last Name']) {
-            const result = await pool.query(
-              'SELECT id FROM employees WHERE first_name ILIKE $1 AND last_name ILIKE $2',
-              [policy['First Name'], policy['Last Name']]
-            );
-            
-            if (result.rows.length > 0) {
-              employeeId = result.rows[0].id;
-            }
-          }
+          const nameKey = `${policy['First Name'].toLowerCase()}|${policy['Last Name'].toLowerCase()}`;
+          employeeId = employeesByName.get(nameKey);
         }
 
         if (!employeeId) {
@@ -102,48 +108,72 @@ async function importPolicies() {
           continue;
         }
 
-        // Map policy data from CSV to database schema
-        const insertQuery = `
-          INSERT INTO insurance_policies (
-            employee_id, company, policy_number, amount, notes, status, start_date, created_by, updated_by, created_at, updated_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, 1, 1, NOW(), NOW()
-          ) RETURNING id
-        `;
-        
         // Fix company name mappings
         let companyName = policy.Company;
         if (companyName === 'Old Mutul') {
           companyName = 'Old Mutual';
         }
-
-        // Set current date for start_date if not provided
-        const today = new Date();
         
-        // Values to insert with today's date for start_date
-        const values = [
+        // Add to the values array
+        insertValues.push({
           employeeId,
-          companyName,
+          company: companyName,
           policyNumber,
-          value,
-          policy.Comment,
-          policy.Status === 'Active' ? 'Active' : 'Cancelled',
-          today
-        ];
+          amount: value,
+          notes: policy.Comment || '',
+          status: policy.Status === 'Active' ? 'Active' : 'Cancelled',
+          startDate: today,
+        });
         
-        // Execute query
-        const result = await pool.query(insertQuery, values);
-        
-        if (result.rows.length > 0) {
-          successCount++;
-          console.log(`Imported policy for ${policy['First Name']} ${policy['Last Name']} - ${policy.Company} - ${policyNumber}`);
-        }
+        successCount++;
       } catch (err) {
-        console.error(`Error importing policy for ${policy['First Name']} ${policy['Last Name']}:`, err);
+        console.error(`Error processing policy for ${policy['First Name']} ${policy['Last Name']}:`, err);
       }
     }
     
-    console.log(`Successfully imported ${successCount} insurance policies out of ${records.length} total`);
+    // Bulk insert all policies at once
+    if (insertValues.length > 0) {
+      // Generate placeholders and values array for bulk insert
+      let placeholders = [];
+      let flatValues = [];
+      let valueIndex = 1;
+      
+      for (const item of insertValues) {
+        const itemPlaceholders = [
+          `$${valueIndex++}`, // employee_id
+          `$${valueIndex++}`, // company
+          `$${valueIndex++}`, // policy_number
+          `$${valueIndex++}`, // amount
+          `$${valueIndex++}`, // notes
+          `$${valueIndex++}`, // status
+          `$${valueIndex++}`, // start_date
+        ];
+        placeholders.push(`(${itemPlaceholders.join(', ')}, 1, 1, NOW(), NOW())`);
+        
+        flatValues.push(
+          item.employeeId,
+          item.company,
+          item.policyNumber,
+          item.amount,
+          item.notes,
+          item.status,
+          item.startDate
+        );
+      }
+      
+      const bulkInsertQuery = `
+        INSERT INTO insurance_policies (
+          employee_id, company, policy_number, amount, notes, status, start_date, created_by, updated_by, created_at, updated_at
+        ) VALUES ${placeholders.join(', ')}
+      `;
+      
+      // Execute bulk insert
+      await pool.query(bulkInsertQuery, flatValues);
+      
+      console.log(`Successfully imported ${successCount} insurance policies out of ${records.length} total`);
+    } else {
+      console.log('No valid policies found to import');
+    }
   } catch (error) {
     console.error('Error importing policy data:', error);
   } finally {
