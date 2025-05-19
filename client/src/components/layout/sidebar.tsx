@@ -35,9 +35,7 @@ export default function Sidebar() {
   const { logout } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const isMobile = useIsMobile();
-  const [openGroups, setOpenGroups] = useState<{[key: string]: boolean}>({
-    "staffActions": true  // Open by default
-  });
+  const [openGroups, setOpenGroups] = useState<{[key: string]: boolean}>({});
 
   // Collapse sidebar on mobile by default
   useEffect(() => {
@@ -203,23 +201,17 @@ export default function Sidebar() {
           label="Earnings" 
         />
         
-        {/* Staff Actions Group */}
-        <MenuGroup
-          id="staffActions"
-          icon={UserIcon}
-          label="Staff Actions"
-        >
-          <NavItem 
-            icon={Calendar} 
-            path="/leave" 
-            label="Leave" 
-          />
-          <NavItem 
-            icon={UserMinus} 
-            path="/terminations" 
-            label="Terminations" 
-          />
-        </MenuGroup>
+        <NavItem 
+          icon={Calendar} 
+          path="/leave" 
+          label="Leave" 
+        />
+        
+        <NavItem 
+          icon={UserMinus} 
+          path="/terminations" 
+          label="Terminations" 
+        />
         
         <NavItem 
           icon={Wallet} 
