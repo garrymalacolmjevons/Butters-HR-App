@@ -951,11 +951,7 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  // Staff Garnishee methods removed
-  
-  // Additional garnishee methods removed
-  
-  // Garnishee payment methods removed
+
   
   // Archive functionality
   async archivePayrollRecords(userId: number, recordTypes: string[]): Promise<{ 
@@ -1007,5 +1003,5 @@ export class DatabaseStorage implements IStorage {
     });
   }
   
-  // Garnishee dashboard method removed
+
 }
