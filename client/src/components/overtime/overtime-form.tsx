@@ -28,6 +28,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { EmployeeWithFullName } from "@shared/schema";
+import { EnhancedEmployeeSearch } from "@/components/employees/enhanced-employee-search";
 
 // Extend the insert schema with validation
 const overtimeFormSchema = insertPayrollRecordSchema.extend({
