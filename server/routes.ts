@@ -846,6 +846,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Track exported records endpoint
+  app.post('/api/records/track-export', isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = (req.user as any).id;
+      const { recordIds } = req.body;
+      
+      if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+        return res.status(400).json({ error: "Record IDs are required for tracking exports" });
+      }
+      
+      // Create a values string for the SQL query
+      const valuesString = recordIds.map(recordId => 
+        `(${recordId}, ${userId}, NOW())`
+      ).join(', ');
+      
+      // Insert into tracking table with conflict handling
+      const trackingQuery = `
+        INSERT INTO exported_record_tracking (record_id, exported_by, exported_at)
+        VALUES ${valuesString}
+        ON CONFLICT (record_id) DO UPDATE
+        SET exported_at = NOW(), exported_by = ${userId}
+      `;
+      
+      await db.execute(trackingQuery);
+      
+      res.json({ success: true, message: `Tracked ${recordIds.length} exported records` });
+    } catch (error) {
+      console.error('Error tracking exported records:', error);
+      next(error);
+    }
+  });
+
   app.post('/api/policies', isAuthenticated, async (req, res, next) => {
     try {
       const userId = (req.user as any).id;

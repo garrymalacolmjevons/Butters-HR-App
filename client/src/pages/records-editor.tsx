@@ -104,25 +104,24 @@ const RecordsEditor = () => {
         body: JSON.stringify({ recordIds }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       // Invalidate the query to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/payroll-records"] });
       
       // Also update local state to immediately show exported status without waiting for refetch
-      setRecords(prevRecords => 
-        prevRecords.map(record => 
-          recordIds.includes(record.id) 
-            ? { ...record, hasBeenExported: true } 
-            : record
-        )
+      const updatedRecords = records.map(record => 
+        variables.includes(record.id) 
+          ? { ...record, hasBeenExported: true } 
+          : record
       );
-      setFilteredRecords(prevRecords => 
-        prevRecords.map(record => 
-          recordIds.includes(record.id) 
-            ? { ...record, hasBeenExported: true } 
-            : record
-        )
+      setRecords(updatedRecords);
+      
+      const updatedFilteredRecords = filteredRecords.map(record => 
+        variables.includes(record.id) 
+          ? { ...record, hasBeenExported: true } 
+          : record
       );
+      setFilteredRecords(updatedFilteredRecords);
     },
     onError: (error) => {
       console.error('Failed to track exported records:', error);
